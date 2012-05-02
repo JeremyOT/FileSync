@@ -43,6 +43,7 @@
 @synthesize packetSize = _packetSize;
 @synthesize connectionTerminatedBlock = _connectionTerminatedBlock;
 @synthesize messageReceivedBlock = _messageReceivedBlock;
+@synthesize connectionEstablishedBlock = _connectionEstablishedBlock;
 
 #pragma mark - Lifecycle
 
@@ -69,12 +70,14 @@
 }
 
 -(void)dealloc {
+    [self close];
     [_host release];
     [_netService release];
     [_readBuffer release];
     [_writeBuffer release];
     [_connectionTerminatedBlock release];
     [_messageReceivedBlock release];
+    [_connectionEstablishedBlock release];
     [super dealloc];
 }
 
@@ -89,6 +92,8 @@
         return [self setupSocketStreams];
     } else if (_netService) {
         if (_netService.hostName) {
+            self.host = _netService.hostName;
+            self.port = _netService.port;
             CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, (CFStringRef)_host, _port, &_readStream, &_writeStream);
             return [self setupSocketStreams];
         }
@@ -113,8 +118,8 @@
     kCFStreamEventCanAcceptBytes | kCFStreamEventEndEncountered | kCFStreamEventErrorOccurred;
     
     CFStreamClientContext context = {0, self, NULL, NULL, NULL};
-    CFReadStreamSetClient(_readStream, eventFlags, &readStreamEventHandler, &context);
-    CFWriteStreamSetClient(_writeStream, eventFlags, &writeStreamEventHandler, &context);
+    CFReadStreamSetClient(_readStream, eventFlags, readStreamEventHandler, &context);
+    CFWriteStreamSetClient(_writeStream, eventFlags, writeStreamEventHandler, &context);
     
     CFReadStreamScheduleWithRunLoop(_readStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
     CFWriteStreamScheduleWithRunLoop(_writeStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
@@ -123,7 +128,6 @@
         [self close];
         return NO;
     }
-    
     return YES;
 }
 
@@ -163,6 +167,9 @@ void writeStreamEventHandler(CFWriteStreamRef stream, CFStreamEventType type, vo
     switch (type) {
         case kCFStreamEventOpenCompleted:
             connection->_writeStreamOpen = YES;
+            if (connection->_readStreamOpen && connection->_connectionEstablishedBlock) {
+                connection->_connectionEstablishedBlock(connection);
+            }
             break;
         case kCFStreamEventCanAcceptBytes:
             [connection writeToStream];
@@ -179,7 +186,7 @@ void writeStreamEventHandler(CFWriteStreamRef stream, CFStreamEventType type, vo
 }
 
 -(void)writeToStream {
-    if (!_writeStreamOpen || _readStreamOpen || ![_writeBuffer length] || !CFWriteStreamCanAcceptBytes(_writeStream)) {
+    if (!_writeStreamOpen || !_readStreamOpen || ![_writeBuffer length] || !CFWriteStreamCanAcceptBytes(_writeStream)) {
         return;
     }
     CFIndex writeLength = CFWriteStreamWrite(_writeStream, [_writeBuffer bytes], [_writeBuffer length]);
@@ -198,6 +205,9 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
     switch (type) {
         case kCFStreamEventOpenCompleted:
             connection->_readStreamOpen = YES;
+            if (connection->_writeStreamOpen && connection->_connectionEstablishedBlock) {
+                connection->_connectionEstablishedBlock(connection);
+            }
             break;
         case kCFStreamEventHasBytesAvailable:
             [connection readFromStream];
@@ -239,7 +249,9 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
         NSDictionary *message = [NSKeyedUnarchiver unarchiveObjectWithData:[NSData dataWithBytes:[_readBuffer bytes] length:messageSize]]; 
         [_readBuffer replaceBytesInRange:(NSRange){0, messageSize} withBytes:NULL length:0];
         if (_messageReceivedBlock) {
-            _messageReceivedBlock(self, message);
+            dispatch_async(dispatch_get_current_queue(), ^{
+                _messageReceivedBlock(self, message);
+            });
         }
     }
 }

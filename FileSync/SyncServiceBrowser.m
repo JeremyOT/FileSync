@@ -12,7 +12,7 @@
 
 @property (nonatomic,retain) NSNetServiceBrowser *serviceBrowser;
 @property (nonatomic,retain) NSMutableSet *servers;
-@property (nonatomic,copy) void (^updatedServersBlock)(NSSet* servers);
+@property (nonatomic,copy) void (^serversUpdatedBlock)(SyncServiceBrowser* browser);
 
 @end
 
@@ -20,7 +20,9 @@
 
 @synthesize serviceBrowser = _serviceBrowser;
 @synthesize servers = _servers;
-@synthesize updatedServersBlock = _updatedServersBlock;
+@synthesize serversUpdatedBlock = _serversUpdatedBlock;
+@synthesize serverAddedBlock = _serverAddedBlock;
+@synthesize serverRemovedBlock = _serverRemovedBlock;
 
 #pragma mark - Lifecycle
 
@@ -34,13 +36,21 @@
 -(void)dealloc {
     [_servers release];
     [_serviceBrowser release];
-    [_updatedServersBlock release];
+    [_serversUpdatedBlock release];
+    [_serverAddedBlock release];
+    [_serverRemovedBlock release];
     [super dealloc];
+}
+
+#pragma mark - Servers
+
+-(NSSet *)allServers {
+    return [NSSet setWithSet:_servers];
 }
 
 #pragma mark - Networking
 
--(BOOL)startWithBlock:(void (^)(NSSet *servers))updatedServersBlock {
+-(BOOL)startWithBlock:(void (^)(SyncServiceBrowser *browser))serversUpdatedBlock {
     if (_serviceBrowser) {
         [self stop];
     }
@@ -48,7 +58,7 @@
     if (!_serviceBrowser) {
         return NO;
     }
-    self.updatedServersBlock = updatedServersBlock;
+    self.serversUpdatedBlock = serversUpdatedBlock;
     _serviceBrowser.delegate = self;
     [_serviceBrowser searchForServicesOfType:FSServiceType inDomain:FSSyncDomain];
     return YES;
@@ -64,21 +74,31 @@
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)aNetServiceBrowser didFindService:(NSNetService *)aNetService moreComing:(BOOL)moreComing {
     [_servers addObject:aNetService];
+    if (_serverAddedBlock) {
+        if(!_serverAddedBlock(aNetService)) {
+            [_servers removeObject:aNetService];
+        }
+    }
     if (moreComing) {
         return;
     }
-    if (_updatedServersBlock) {
-        _updatedServersBlock([NSSet setWithSet:_servers]);
+    if (_serversUpdatedBlock) {
+        _serversUpdatedBlock(self);
     }
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)aNetServiceBrowser didRemoveService:(NSNetService *)aNetService moreComing:(BOOL)moreComing {
-    [_servers removeObject:aNetService];
+    if ([_servers containsObject:aNetService]) {
+        [_servers removeObject:aNetService];
+        if (_serverRemovedBlock) {
+            _serverRemovedBlock(aNetService);
+        }
+    }
     if (moreComing) {
         return;
     }
-    if (_updatedServersBlock) {
-        _updatedServersBlock([NSSet setWithSet:_servers]);
+    if (_serversUpdatedBlock) {
+        _serversUpdatedBlock(self);
     }
 }
 

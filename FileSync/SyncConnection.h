@@ -16,6 +16,7 @@
 @property (nonatomic, readonly) BOOL writeStreamOpen;
 @property (nonatomic, copy) void (^connectionTerminatedBlock)(SyncConnection*);
 @property (nonatomic, copy) void (^messageReceivedBlock)(SyncConnection*, NSDictionary*);
+@property (nonatomic, copy) void (^connectionEstablishedBlock)(SyncConnection*);
 
 -(id)initWithHost:(NSString*)host port:(int)port;
 -(id)initWithNativeSocketHandle:(CFSocketNativeHandle)nativeSocketHandle;

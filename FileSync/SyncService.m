@@ -108,7 +108,7 @@ static void serverAcceptHandler(CFSocketRef socket, CFSocketCallBackType type, C
     // Make sure address is reused for each connection
     int existingSocket = 1;
     setsockopt(CFSocketGetNative(_listenSocket), SOL_SOCKET, SO_REUSEADDR,
-               &existingSocket, sizeof(existingSocket));
+               (void*)&existingSocket, sizeof(existingSocket));
     
     // Bind socket to endpoint, address assigned by kernel
     struct sockaddr_in socketAddress;

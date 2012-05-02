@@ -10,7 +10,11 @@
 
 @interface SyncServiceBrowser : NSObject <NSNetServiceBrowserDelegate>
 
--(BOOL)startWithBlock:(void (^)(NSSet *servers))updatedServersBlock;
+@property (nonatomic, readonly) NSSet *allServers;
+@property (nonatomic, copy) BOOL (^serverAddedBlock)(NSNetService *server);
+@property (nonatomic, copy) void (^serverRemovedBlock)(NSNetService *server);
+
+-(BOOL)startWithBlock:(void (^)(SyncServiceBrowser *browser))serversUpdatedBlock;
 -(void)stop;
 
 @end

@@ -13,6 +13,7 @@
 
 @interface SyncService : NSObject <NSNetServiceDelegate>
 
+@property (nonatomic, retain, readonly) NSNetService *netService;
 @property (nonatomic, copy, readonly) NSString *serviceName;
 @property (nonatomic, assign, readonly) uint16_t port; 
 @property (nonatomic, copy) void (^acceptBlock)(SyncConnection*);
