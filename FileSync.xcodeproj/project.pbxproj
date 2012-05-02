@@ -7,28 +7,42 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		24118EFF154A27570006F77B /* SyncService.m in Sources */ = {isa = PBXBuildFile; fileRef = 24118EFE154A27570006F77B /* SyncService.m */; };
+		24118F07154A3CC10006F77B /* SyncConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = 24118F06154A3CC10006F77B /* SyncConnection.m */; };
+		245B76D9154E6D2D007CDAE2 /* SyncServiceBrowser.m in Sources */ = {isa = PBXBuildFile; fileRef = 245B76D8154E6D2D007CDAE2 /* SyncServiceBrowser.m */; };
 		24677E8D1548EC93000C26DA /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 24677E8C1548EC93000C26DA /* Cocoa.framework */; };
 		24677E971548EC93000C26DA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 24677E951548EC93000C26DA /* InfoPlist.strings */; };
 		24677E991548EC94000C26DA /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E981548EC94000C26DA /* main.m */; };
 		24677E9D1548EC94000C26DA /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 24677E9B1548EC94000C26DA /* Credits.rtf */; };
 		24677EA01548EC94000C26DA /* FSAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E9F1548EC94000C26DA /* FSAppDelegate.m */; };
 		24677EA31548EC94000C26DA /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 24677EA11548EC94000C26DA /* MainMenu.xib */; };
+		24677EAB15493010000C26DA /* FileWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677EAA15492F11000C26DA /* FileWatcher.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		24118EFD154A27570006F77B /* SyncService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncService.h; sourceTree = "<group>"; };
+		24118EFE154A27570006F77B /* SyncService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyncService.m; sourceTree = "<group>"; };
+		24118F05154A3CC10006F77B /* SyncConnection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncConnection.h; sourceTree = "<group>"; };
+		24118F06154A3CC10006F77B /* SyncConnection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyncConnection.m; sourceTree = "<group>"; };
+		24295DE1154CFA9F0044534C /* BSONSerialization.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BSONSerialization.h; sourceTree = "<group>"; };
+		24295DE2154CFA9F0044534C /* BSONSerialization.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BSONSerialization.m; sourceTree = "<group>"; };
+		245B76D7154E6D2D007CDAE2 /* SyncServiceBrowser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncServiceBrowser.h; sourceTree = "<group>"; };
+		245B76D8154E6D2D007CDAE2 /* SyncServiceBrowser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyncServiceBrowser.m; sourceTree = "<group>"; };
 		24677E881548EC93000C26DA /* FileSync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FileSync.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		24677E8C1548EC93000C26DA /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		24677E8F1548EC93000C26DA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		24677E901548EC93000C26DA /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		24677E911548EC93000C26DA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
-		24677E941548EC93000C26DA /* FileSync-Info.plist */ = {isa = PBXFileReference; path = "FileSync-Info.plist"; sourceTree = "<group>"; };
+		24677E941548EC93000C26DA /* FileSync-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "FileSync-Info.plist"; sourceTree = "<group>"; };
 		24677E961548EC93000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		24677E981548EC94000C26DA /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		24677E9A1548EC94000C26DA /* FileSync-Prefix.pch */ = {isa = PBXFileReference; path = "FileSync-Prefix.pch"; sourceTree = "<group>"; };
+		24677E9A1548EC94000C26DA /* FileSync-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FileSync-Prefix.pch"; sourceTree = "<group>"; };
 		24677E9C1548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
-		24677E9E1548EC94000C26DA /* FSAppDelegate.h */ = {isa = PBXFileReference; path = FSAppDelegate.h; sourceTree = "<group>"; };
+		24677E9E1548EC94000C26DA /* FSAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FSAppDelegate.h; sourceTree = "<group>"; };
 		24677E9F1548EC94000C26DA /* FSAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FSAppDelegate.m; sourceTree = "<group>"; };
 		24677EA21548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		24677EA915492F11000C26DA /* FileWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileWatcher.h; sourceTree = "<group>"; };
+		24677EAA15492F11000C26DA /* FileWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileWatcher.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,10 +96,20 @@
 		24677E921548EC93000C26DA /* FileSync */ = {
 			isa = PBXGroup;
 			children = (
+				24295DE1154CFA9F0044534C /* BSONSerialization.h */,
+				24295DE2154CFA9F0044534C /* BSONSerialization.m */,
 				24677E9E1548EC94000C26DA /* FSAppDelegate.h */,
 				24677E9F1548EC94000C26DA /* FSAppDelegate.m */,
+				24677EA915492F11000C26DA /* FileWatcher.h */,
+				24677EAA15492F11000C26DA /* FileWatcher.m */,
 				24677EA11548EC94000C26DA /* MainMenu.xib */,
 				24677E931548EC93000C26DA /* Supporting Files */,
+				24118EFD154A27570006F77B /* SyncService.h */,
+				24118EFE154A27570006F77B /* SyncService.m */,
+				24118F05154A3CC10006F77B /* SyncConnection.h */,
+				24118F06154A3CC10006F77B /* SyncConnection.m */,
+				245B76D7154E6D2D007CDAE2 /* SyncServiceBrowser.h */,
+				245B76D8154E6D2D007CDAE2 /* SyncServiceBrowser.m */,
 			);
 			path = FileSync;
 			sourceTree = "<group>";
@@ -169,6 +193,10 @@
 			files = (
 				24677E991548EC94000C26DA /* main.m in Sources */,
 				24677EA01548EC94000C26DA /* FSAppDelegate.m in Sources */,
+				24677EAB15493010000C26DA /* FileWatcher.m in Sources */,
+				24118EFF154A27570006F77B /* SyncService.m in Sources */,
+				24118F07154A3CC10006F77B /* SyncConnection.m in Sources */,
+				245B76D9154E6D2D007CDAE2 /* SyncServiceBrowser.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,6 +316,7 @@
 				24677EA81548EC94000C26DA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

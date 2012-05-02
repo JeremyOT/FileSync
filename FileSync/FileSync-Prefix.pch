@@ -5,3 +5,17 @@
 #ifdef __OBJC__
     #import <Cocoa/Cocoa.h>
 #endif
+
+#define FSServiceType @"_walrus_file_sync._tcp."
+#define FSSyncDomain @"local."
+
+#ifdef DEBUG
+
+#define DLog(...) \
+NSLog(@"%s (%@: %d): %@", __PRETTY_FUNCTION__, [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, [NSString stringWithFormat:__VA_ARGS__])
+
+#else
+
+#define DLog(...)
+
+#endif
