@@ -11,6 +11,7 @@
 #import "SyncService.h"
 #import "SyncConnection.h"
 #import "SyncServiceBrowser.h"
+#import "FSSynchronizer.h"
 
 @interface FSAppDelegate ()
 
@@ -59,6 +60,17 @@
 }
 
 -(void)awakeFromNib {
+    FSSynchronizer *inSync = [[FSSynchronizer alloc] initWithFile:@"/Users/jeremyot/Desktop/objective-c.txt"];
+    FSSynchronizer *outSync = [[FSSynchronizer alloc] initWithFile:@"/Users/jeremyot/Desktop/objective-c-copy.txt"];
+    NSSet *diff = [outSync diffForSignature:inSync.hashSignature];
+    NSArray *components = [inSync componentsForDiff:diff];
+    [outSync updateFileWithComponents:components];
+    [inSync release];
+    [outSync release];
+    NSData *idat = [NSData dataWithContentsOfFile:@"/Users/jeremyot/Desktop/objective-c.txt"];
+    NSData *odat = [NSData dataWithContentsOfFile:@"/Users/jeremyot/Desktop/objective-c-copy.txt"];
+    NSLog(@"Complete: %@\nF1: %u F2: %u", [idat isEqualToData:odat] ? @"Success" : @"Fail", [idat length], [odat length]);
+    return;
     self.remoteServices = [NSMutableDictionary dictionary];
     self.incomingSyncConnections = [NSMutableArray array];
     self.outgoingSyncConnections = [NSMutableDictionary dictionary];

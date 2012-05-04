@@ -17,6 +17,7 @@
 		24677EA01548EC94000C26DA /* FSAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E9F1548EC94000C26DA /* FSAppDelegate.m */; };
 		24677EA31548EC94000C26DA /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 24677EA11548EC94000C26DA /* MainMenu.xib */; };
 		24677EAB15493010000C26DA /* FileWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677EAA15492F11000C26DA /* FileWatcher.m */; };
+		24C8977C1551C00700CD3132 /* FSSynchronizer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 24C8977B1551C00700CD3132 /* FSSynchronizer.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,8 @@
 		24677EA21548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		24677EA915492F11000C26DA /* FileWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileWatcher.h; sourceTree = "<group>"; };
 		24677EAA15492F11000C26DA /* FileWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileWatcher.m; sourceTree = "<group>"; };
+		24C8977A1551C00700CD3132 /* FSSynchronizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSSynchronizer.h; sourceTree = "<group>"; };
+		24C8977B1551C00700CD3132 /* FSSynchronizer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FSSynchronizer.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +113,8 @@
 				24118F06154A3CC10006F77B /* SyncConnection.m */,
 				245B76D7154E6D2D007CDAE2 /* SyncServiceBrowser.h */,
 				245B76D8154E6D2D007CDAE2 /* SyncServiceBrowser.m */,
+				24C8977A1551C00700CD3132 /* FSSynchronizer.h */,
+				24C8977B1551C00700CD3132 /* FSSynchronizer.mm */,
 			);
 			path = FileSync;
 			sourceTree = "<group>";
@@ -197,6 +202,7 @@
 				24118EFF154A27570006F77B /* SyncService.m in Sources */,
 				24118F07154A3CC10006F77B /* SyncConnection.m in Sources */,
 				245B76D9154E6D2D007CDAE2 /* SyncServiceBrowser.m in Sources */,
+				24C8977C1551C00700CD3132 /* FSSynchronizer.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
