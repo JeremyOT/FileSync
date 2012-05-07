@@ -21,6 +21,7 @@
 @property (nonatomic,retain) NSMutableDictionary *remoteServices;
 @property (nonatomic,retain) NSMutableArray *incomingSyncConnections;
 @property (nonatomic,retain) NSMutableDictionary *outgoingSyncConnections;
+@property (nonatomic,retain) NSString *renameSourcePath;
 
 @end
 
@@ -35,6 +36,7 @@
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
 @synthesize outgoingSyncConnections = _outgoingSyncConnections;
+@synthesize renameSourcePath = _renameSourcePath;
 
 - (void)dealloc
 {
@@ -47,6 +49,7 @@
     [_remoteServices release];
     [_incomingSyncConnections release];
     [_outgoingSyncConnections release];
+    [_renameSourcePath release];
     [super dealloc];
 }
 
@@ -59,17 +62,52 @@
     }
 }
 
+-(void)sycnDir:(NSString*)source withDir:(NSString*)sink forEvent:(FSEventStreamEventFlags)flags {
+    [[NSFileManager defaultManager] createDirectoryAtPath:sink withIntermediateDirectories:YES attributes:[[NSFileManager defaultManager] attributesOfItemAtPath:source error:nil] error:nil];
+    [[NSFileManager defaultManager] setAttributes:[[NSFileManager defaultManager] attributesOfItemAtPath:source error:nil] ofItemAtPath:sink error:nil];
+}
+
+-(void)syncFile:(NSString*)source withFile:(NSString*)sink forEvent:(FSEventStreamEventFlags)flags {
+        FSSynchronizer *inSync = [[FSSynchronizer alloc] initWithFile:source];
+        FSSynchronizer *outSync = [[FSSynchronizer alloc] initWithFile:sink];
+        NSSet *diff = [outSync diffForSignature:inSync.hashSignature];
+        NSArray *components = [inSync componentsForDiff:diff];
+        [outSync updateFileWithComponents:components];
+        [inSync release];
+        [outSync release];
+        NSData *idat = [NSData dataWithContentsOfFile:source];
+    NSData *odat = [NSData dataWithContentsOfFile:sink];
+    [[NSFileManager defaultManager] setAttributes:[[NSFileManager defaultManager] attributesOfItemAtPath:source error:nil] ofItemAtPath:sink error:nil];
+    NSLog(@"%@ Sync Complete: %@\n", source, [idat isEqualToData:odat] ? @"Success" : @"Fail");
+}
+
 -(void)awakeFromNib {
-    FSSynchronizer *inSync = [[FSSynchronizer alloc] initWithFile:@"/Users/jeremyot/Desktop/objective-c.txt"];
-    FSSynchronizer *outSync = [[FSSynchronizer alloc] initWithFile:@"/Users/jeremyot/Desktop/objective-c-copy.txt"];
-    NSSet *diff = [outSync diffForSignature:inSync.hashSignature];
-    NSArray *components = [inSync componentsForDiff:diff];
-    [outSync updateFileWithComponents:components];
-    [inSync release];
-    [outSync release];
-    NSData *idat = [NSData dataWithContentsOfFile:@"/Users/jeremyot/Desktop/objective-c.txt"];
-    NSData *odat = [NSData dataWithContentsOfFile:@"/Users/jeremyot/Desktop/objective-c-copy.txt"];
-    NSLog(@"Complete: %@\nF1: %u F2: %u", [idat isEqualToData:odat] ? @"Success" : @"Fail", [idat length], [odat length]);
+    NSString *syncSource = @"/Users/jeremyot/Desktop/SyncTest";
+    NSString *syncOut = @"/Users/jeremyot/Desktop/SyncOutput";
+
+    FileWatcher *watcher = [[FileWatcher alloc] initWithBlock:^(NSString *file, FSEventStreamEventFlags flags, FSEventStreamEventId eventId) {
+        if (flags & kFSEventStreamEventFlagItemRenamed) {
+            if (_renameSourcePath) {
+                [[NSFileManager defaultManager] moveItemAtPath:[_renameSourcePath stringByReplacingOccurrencesOfString:syncSource withString:syncOut] toPath:[file stringByReplacingOccurrencesOfString:syncSource withString:syncOut] error:nil];
+                self.renameSourcePath = nil;
+            } else {
+                self.renameSourcePath = file;
+            }
+            return;
+        }
+        if (flags & kFSEventStreamEventFlagItemRemoved) {
+            [[NSFileManager defaultManager] removeItemAtPath:[_renameSourcePath stringByReplacingOccurrencesOfString:syncSource withString:syncOut] error:nil];
+            return;
+        }
+        if (flags & kFSEventStreamEventFlagItemIsFile) {
+            [self syncFile:file withFile:[file stringByReplacingOccurrencesOfString:syncSource withString:syncOut] forEvent:flags];
+        } else if (flags & kFSEventStreamEventFlagItemIsDir) {
+            [self sycnDir:file withDir:[file stringByReplacingOccurrencesOfString:syncSource withString:syncOut] forEvent:flags];
+        }
+    }];
+    watcher = [[FileWatcher alloc] init];
+    [[NSFileManager defaultManager] createDirectoryAtPath:syncOut withIntermediateDirectories:YES attributes:nil error:nil];
+    [watcher openEventStream:[NSArray arrayWithObject:syncSource] latency:1];
     return;
     self.remoteServices = [NSMutableDictionary dictionary];
     self.incomingSyncConnections = [NSMutableArray array];

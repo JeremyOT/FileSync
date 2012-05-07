@@ -9,11 +9,13 @@
 #import <Foundation/Foundation.h>
 
 @interface FileWatcher : NSObject {
-    void (^callbackBlock)(NSString*, FSEventStreamEventFlags);
-    FSEventStreamRef eventStream;
+    void (^_callbackBlock)(NSString*, FSEventStreamEventFlags, FSEventStreamEventId);
+    void (^_batchCallbackBlock)(NSArray *paths, const FSEventStreamEventFlags flagArray[], const FSEventStreamEventId eventIdArray[], int count);  
+    FSEventStreamRef _eventStream;
 }
 
--(id)initWithBlock:(void (^)(NSString*, FSEventStreamEventFlags))block;
+-(id)initWithBlock:(void (^)(NSString*, FSEventStreamEventFlags, FSEventStreamEventId))block;
+-(id)initWithBatchCallbackBlock:(void (^)(NSArray*, const FSEventStreamEventFlags*, const FSEventStreamEventId*, int))block;
 -(void)openEventStream:(NSArray*)pathsToWatch latency:(NSTimeInterval)latency;
 -(void)close;
 

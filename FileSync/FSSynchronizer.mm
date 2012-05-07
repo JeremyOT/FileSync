@@ -101,16 +101,16 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     int sampleSize = _sampleSize;
     int sampleCount = ceil((double)length/sampleSize);
     NSMutableArray *signature = [NSMutableArray arrayWithCapacity:sampleCount];
-    for (unsigned char *bytes = (unsigned char*)[_data bytes]; length; bytes += sampleSize, length -= sampleSize, sampleSize = MIN(sampleSize, length)) {
+    for (unsigned char *bytes = (unsigned char*)[_data bytes]; length >= 0; bytes += sampleSize, length -= sampleSize) {
         [signature addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                              [NSNumber numberWithUnsignedShort:fastHash(bytes, sampleSize)], FSFastHashKey,
-                              md5Hash(bytes, sampleSize), FSSlowHashKey,
+                              [NSNumber numberWithUnsignedShort:fastHash(bytes, MIN(sampleSize, length))], FSFastHashKey,
+                              md5Hash(bytes, MIN(sampleSize, length)), FSSlowHashKey,
                               nil]];
     }
     return [NSArray arrayWithArray:signature];
 }
 
--(NSSet*)diffForSignature:(NSDictionary*)remoteHashSignature {
+-(NSSet*)existingComponentsForSignature:(NSDictionary*)remoteHashSignature {
     std::tr1::unordered_map<unsigned int, id> hashes;
     for (NSNumber *fastHash in remoteHashSignature) { 
         hashes[[fastHash intValue]] = [remoteHashSignature objectForKey:fastHash];
@@ -135,28 +135,27 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     return matches;
 }
 
--(NSArray*)componentsForDiff:(NSSet*)diff {
-    NSLog(@"Diff: %@", diff);
+-(NSArray*)diffForComponents:(NSSet*)components {
     int length = [self.data length];
     int sampleSize = _sampleSize;
     int sampleCount = ceil((double)length/sampleSize);
-    NSMutableArray *components = [NSMutableArray arrayWithCapacity:sampleCount];
+    NSMutableArray *diff = [NSMutableArray arrayWithCapacity:sampleCount];
     int i = 0;
     for (NSDictionary *sample in self.signature) {
         if ([diff containsObject:[sample objectForKey:FSSlowHashKey]]) {
-            [components addObject:[sample objectForKey:FSSlowHashKey]];
+            [diff addObject:[sample objectForKey:FSSlowHashKey]];
         } else {
-            [components addObject:[_data subdataWithRange:(NSRange){_sampleSize * i, MIN(_sampleSize, length)}]];
+           [diff addObject:[_data subdataWithRange:(NSRange){_sampleSize * i, MIN(_sampleSize, length)}]];
         }
         i++;
         length -= sampleSize;
     }
-    return components;
+    return diff;
 }
 
--(void)updateFileWithComponents:(NSArray*)components {
-    NSMutableData *compositeData = [NSMutableData dataWithCapacity:[components count] * _sampleSize];
-    for (NSData *component in components) {
+-(void)updateFileWithDiff:(NSArray*)diff {
+    NSMutableData *compositeData = [NSMutableData dataWithCapacity:[diff count] * _sampleSize];
+    for (NSData *component in diff) {
         if ([component length] == CC_MD5_DIGEST_LENGTH && [_syncDataMatches objectForKey:component]) {
             [compositeData appendData:[_syncDataMatches objectForKey:component]];
         } else {

@@ -13,8 +13,8 @@
 
 -(id)initWithFile:(NSString*)path;
 
--(NSSet*)diffForSignature:(NSDictionary*)remoteSignature;
--(NSArray*)componentsForDiff:(NSSet*)diff;
--(void)updateFileWithComponents:(NSArray*)components;
+-(NSSet*)existingComponentsForSignature:(NSDictionary*)remoteSignature;
+-(NSArray*)diffForComponents:(NSSet*)components;
+-(void)updateFileWithDiff:(NSArray*)diff;
 
 @end
