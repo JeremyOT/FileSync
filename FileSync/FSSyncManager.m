@@ -20,6 +20,7 @@ const NSString *FSFileAttributes = @"Attributes";
 @property (nonatomic, retain) FSDirectoryObserver *observer;
 @property (nonatomic, retain) FSDirectory *directory;
 @property (nonatomic, retain) NSMutableDictionary *synchronizers;
+@property (nonatomic, retain) NSMutableDictionary *deleteHistory;
 
 @end
 
@@ -30,6 +31,7 @@ const NSString *FSFileAttributes = @"Attributes";
 @synthesize observer = _observer;
 @synthesize directory = _directory;
 @synthesize synchronizers = _synchronizers;
+@synthesize deleteHistory = _deleteHistory;
 
 #pragma mark - Lifecycle
 
@@ -40,6 +42,10 @@ const NSString *FSFileAttributes = @"Attributes";
         _observer = [[FSDirectoryObserver alloc] initWithDirectory:path];
         _directory = [[FSDirectory alloc] initWithPath:path];
         _synchronizers = [[NSMutableDictionary alloc] init];
+        self.deleteHistory = [NSMutableDictionary dictionaryWithContentsOfFile:path];
+        if (_deleteHistory) {
+            _deleteHistory = [[NSMutableDictionary alloc] init];
+        }
     }
     return self;
 }
@@ -50,6 +56,7 @@ const NSString *FSFileAttributes = @"Attributes";
     [_observer release];
     [_directory release];
     [_synchronizers release];
+    [_deleteHistory release];
     [super dealloc];
 }
 
@@ -57,24 +64,52 @@ const NSString *FSFileAttributes = @"Attributes";
 
 -(NSDictionary*)syncDictionary {
     NSDictionary *directoryMap = [_directory directoryMap];
-    NSMutableDictionary *syncData = [NSMutableDictionary dictionaryWithCapacity:
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSMutableDictionary *directoryInformation = [NSMutableDictionary dictionaryWithCapacity:[directoryMap count]];
+    for (NSString *path in directoryMap) {
+        [directoryInformation setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                                         [[manager attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil] fileModificationDate], FSMModified,
+                                         [directoryMap objectForKey:path], FSMIsDir,
+                                         nil] forKey:path];
+    }
+    return [NSDictionary dictionaryWithObjectsAndKeys:
+            _deleteHistory, FSMDeleteHistory,
+            directoryInformation, FSMDirectoryInformation,
+            nil];
 }
 
--(void)removeExcessFilesForDirectoryMap:(NSDictionary*)map {
-    NSDictionary *directoryMap = _directory.directoryMap; 
+-(NSSet*)requestedPathsForSyncDictionary:(NSDictionary*)syncDictionary {
+    NSDictionary *deleteHistory = [syncDictionary objectForKey:FSMDeleteHistory];
     NSFileManager *manager = [NSFileManager defaultManager];
-    for (NSString *path in directoryMap) {
-        if (![[map objectForKey:path] isEqualToNumber:[directoryMap objectForKey:path]]) {
-            [manager removeItemAtPath:[_path stringByAppendingPathComponent:path] error:nil];
+    for (NSString *path in deleteHistory) {
+        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
+        if ([manager fileExistsAtPath:absolutePath] && [[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isLessThan:[deleteHistory objectForKey:path]]) {
+            [manager removeItemAtPath:absolutePath error:nil];
         }
     }
+    NSDictionary *directoryInformation = [syncDictionary objectForKey:FSMDirectoryInformation];
+    NSMutableSet *syncPaths = [NSMutableSet set];
+    for (NSString *path in directoryInformation) {
+        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
+        if ([_deleteHistory objectForKey:path] && [[_deleteHistory objectForKey:path] isGreaterThanOrEqualTo:[[directoryInformation objectForKey:path] objectForKey:FSMModified]]) {
+            continue;
+        }
+        if ([manager fileExistsAtPath:absolutePath] && [[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThanOrEqualTo:[[directoryInformation objectForKey:path] objectForKey:FSMModified]]) {
+            continue;
+        }
+        [syncPaths addObject:path];
+    }
+    return syncPaths;
 }
 
--(void)start {
+-(void)startSyncManager {
+    [_observer setFileRemovedBlock:^(NSString *path) {
+        
+    }];
     [_observer start];
 }
 
--(void)stop {
+-(void)stopSyncManager {
     [_observer stop];
 }
 
