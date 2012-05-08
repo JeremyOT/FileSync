@@ -31,6 +31,7 @@ NSString *FSSyncMessagePathKey = @"Path";
 NSString *FSSyncMessageSenderKey = @"Sender";
 
 NSString *FSSyncMessageTypeFileList = @"FileList";
+NSString *FSSyncMessageTypeHello = @"Hello";
 
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
@@ -75,7 +76,12 @@ NSString *FSSyncMessageTypeFileList = @"FileList";
 }
 
 -(void)sendMessage:(NSString*)type data:(id)data path:(NSString*)path connection:(SyncConnection*)connection {
-    
+    [connection sendMessage:[NSDictionary dictionaryWithObjectsAndKeys:
+                             _service.netService.name, FSSyncMessageSenderKey,
+                             type, FSSyncMessageTypeKey,
+                             data, FSSyncMessageDataKey,
+                             path, FSSyncMessagePathKey,
+                             nil]];
 }
 
 #pragma mark - Outgoing Sync
@@ -87,7 +93,7 @@ NSString *FSSyncMessageTypeFileList = @"FileList";
 #pragma mark - Incoming Sync
 
 -(void)processMessage:(NSDictionary*)message forIncomingConnection:(SyncConnection*)connection {
-    
+    // Process Hello
 }
 
 #pragma mark - Service Control
@@ -111,9 +117,7 @@ NSString *FSSyncMessageTypeFileList = @"FileList";
             [_outgoingSyncConnections addObject:connection];
         }
         [connection setConnectionEstablishedBlock:^(SyncConnection *c) {
-            // Send file list
-//            [self sendMessage:FSSyncMessageTypeFileList data:[] path:<#(NSString *)#> connection:<#(SyncConnection *)#>
-//            [c sendMessage:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"I found you %@", service.name] forKey:@"message"]];
+            [self sendMessage:FSSyncMessageTypeHello data:nil path:nil connection:c];
         }];
         return YES;
     }];
