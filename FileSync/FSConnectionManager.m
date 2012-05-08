@@ -25,6 +25,13 @@
 
 @implementation FSConnectionManager
 
+NSString *FSSyncMessageTypeKey = @"Type";
+NSString *FSSyncMessageDataKey = @"Data";
+NSString *FSSyncMessagePathKey = @"Path";
+NSString *FSSyncMessageSenderKey = @"Sender";
+
+NSString *FSSyncMessageTypeFileList = @"FileList";
+
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
 @synthesize outgoingSyncConnections = _outgoingSyncConnections;
@@ -67,21 +74,25 @@
     [_syncManagers removeObjectForKey:name];
 }
 
+-(void)sendMessage:(NSString*)type data:(id)data path:(NSString*)path connection:(SyncConnection*)connection {
+    
+}
+
 #pragma mark - Outgoing Sync
 
--(void)continueSyncForOutgoingConnection:(SyncConnection*)connection message:(NSDictionary*)message {
+-(void)processMessage:(NSDictionary*)message forOutgoingConnection:(SyncConnection*)connection {
     
 }
 
 #pragma mark - Incoming Sync
 
--(void)continueSyncForIncomingConnection:(SyncConnection*)connection message:(NSDictionary*)message {
+-(void)processMessage:(NSDictionary*)message forIncomingConnection:(SyncConnection*)connection {
     
 }
 
 #pragma mark - Service Control
 
--(void)startSyncManager {
+-(void)startSyncManagerWithBlock:(void (^)(NSArray *services))servicesUpdatedBlock {
     [_browser setServerAddedBlock:^(NSNetService *service) {
         if ([service.name isEqualToString:_service.netService.name]) {
             return NO;
@@ -92,7 +103,7 @@
             [_outgoingSyncConnections removeObject:c];
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
-            [self continueSyncForOutgoingConnection:c message:m];
+            [self processMessage:m forOutgoingConnection:c];
         }];
         if (![connection connect]) {
             DLog(@"Failed to connect");
@@ -100,15 +111,17 @@
             [_outgoingSyncConnections addObject:connection];
         }
         [connection setConnectionEstablishedBlock:^(SyncConnection *c) {
-            [c sendMessage:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"I found you %@", service.name] forKey:@"message"]];
+            // Send file list
+//            [self sendMessage:FSSyncMessageTypeFileList data:[] path:<#(NSString *)#> connection:<#(SyncConnection *)#>
+//            [c sendMessage:[NSDictionary dictionaryWithObject:[NSString stringWithFormat:@"I found you %@", service.name] forKey:@"message"]];
         }];
         return YES;
     }];
     [_browser setServerRemovedBlock:^(NSNetService *service) {
         [_remoteServices removeObjectForKey:service.name];
     }];
-    [_browser startWithBlock:^(SyncServiceBrowser *browser) {
-//        [self updateMenu];
+     [_browser startWithBlock:^(SyncServiceBrowser *browser) {
+        servicesUpdatedBlock([[_remoteServices allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]);
     }];
     [_service setErrorBlock:^(SyncService *ss, NSNetService *ns, NSDictionary *info){
         DLog(@"Service Error: %@ %@ %@", ss, ns, info);
@@ -118,7 +131,7 @@
             [_incomingSyncConnections removeObject:c];
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
-            [self continueSyncForIncomingConnection:c message:m];
+            [self processMessage:m forIncomingConnection:c];
         }];
         [_incomingSyncConnections addObject:connection];
     }];
