@@ -8,18 +8,21 @@
 
 #import <Foundation/Foundation.h>
 
-const NSString *FSMModified = @"Modified";
-const NSString *FSMIsDir = @"IsDir";
-const NSString *FSMDeleteHistory = @"DeleteHistory";
-const NSString *FSMDirectoryInformation = @"DirectoryInformation";
-
 @interface FSSyncManager : NSObject
 
 @property (nonatomic, retain, readonly) NSString *name;
 @property (nonatomic, retain, readonly) NSString *path;
 
 -(id)initWithName:(NSString*)name path:(NSString*)path;
--(void)startSyncManager;
+
+-(NSDictionary*)modificationDates;
+-(NSSet*)requestedPathsForModificationDates:(NSDictionary*)modificationDates sinceTime:(NSDate*)syncTime;
+-(void)completeFileSyncWithDiffData:(NSDictionary*)data;
+-(NSDictionary*)diffForComponentData:(NSDictionary*)data;
+-(void)syncEvents:(NSArray*)events componentSyncBlock:(void (^)(NSDictionary *componentData))componentSyncBlock;
+-(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data;
+
+-(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock;
 -(void)stopSyncManager;
 
 @end

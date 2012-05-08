@@ -58,7 +58,7 @@
 
 -(void)addMonitoredDirectory:(NSString*)name atPath:(NSString*)path {
     FSSyncManager *manager = [[[FSSyncManager alloc] initWithName:name path:path] autorelease];
-    [manager startSyncManager];
+//    [manager startSyncManager];
     [_syncManagers setObject:manager forKey:name];
 }
 

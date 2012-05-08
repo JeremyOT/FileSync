@@ -8,19 +8,27 @@
 
 #import "FSSyncManager.h"
 #import "FSDirectoryObserver.h"
-#import "FSDirectory.h"
+#import "FSSynchronizer.h"
+#import "FSConnectionManager.h"
 
-const NSString *FSFileIsDirectory = @"Directory";
-const NSString *FSFileAttributes = @"Attributes";
+NSString *FSSyncEventTypeKey = @"Type";
+NSString *FSSyncEventDataKey = @"Data";
+NSString *FSSyncEventPathKey = @"Path";
+NSString *FSSyncEventDateKey = @"Date";
+NSString *FSSyncEventModified = @"Modified";
+NSString *FSSyncEventRemoved = @"Removed";
+NSString *FSSyncEventRenamed = @"Renamed";
+NSString *FSSyncEventDirectoryCreated = @"DirectoryCreated";
+NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 
 @interface FSSyncManager () 
 
 @property (nonatomic, retain, readwrite) NSString *name;
 @property (nonatomic, retain, readwrite) NSString *path;
 @property (nonatomic, retain) FSDirectoryObserver *observer;
-@property (nonatomic, retain) FSDirectory *directory;
-@property (nonatomic, retain) NSMutableDictionary *synchronizers;
-@property (nonatomic, retain) NSMutableDictionary *deleteHistory;
+@property (nonatomic, retain) NSMutableDictionary *outgoingSynchronizers;
+@property (nonatomic, retain) NSMutableDictionary *incomingSynchronizers;
+@property (nonatomic, retain) NSMutableArray *syncEventQueue;
 
 @end
 
@@ -29,9 +37,9 @@ const NSString *FSFileAttributes = @"Attributes";
 @synthesize name = _name;
 @synthesize path = _path;
 @synthesize observer = _observer;
-@synthesize directory = _directory;
-@synthesize synchronizers = _synchronizers;
-@synthesize deleteHistory = _deleteHistory;
+@synthesize outgoingSynchronizers = _outgoingSynchronizers;
+@synthesize incomingSynchronizers = _incomingSynchronizers;
+@synthesize syncEventQueue = _syncEventQueue;
 
 #pragma mark - Lifecycle
 
@@ -40,12 +48,9 @@ const NSString *FSFileAttributes = @"Attributes";
         self.name = name;
         self.path = path;
         _observer = [[FSDirectoryObserver alloc] initWithDirectory:path];
-        _directory = [[FSDirectory alloc] initWithPath:path];
-        _synchronizers = [[NSMutableDictionary alloc] init];
-        self.deleteHistory = [NSMutableDictionary dictionaryWithContentsOfFile:path];
-        if (_deleteHistory) {
-            _deleteHistory = [[NSMutableDictionary alloc] init];
-        }
+        _outgoingSynchronizers = [[NSMutableDictionary alloc] init];
+        _incomingSynchronizers = [[NSMutableDictionary alloc] init];
+        _syncEventQueue = [[NSMutableArray alloc] init];
     }
     return self;
 }
@@ -54,57 +59,113 @@ const NSString *FSFileAttributes = @"Attributes";
     [_name release];
     [_path release];
     [_observer release];
-    [_directory release];
-    [_synchronizers release];
-    [_deleteHistory release];
+    [_outgoingSynchronizers release];
+    [_incomingSynchronizers release];
+    [_syncEventQueue release];
     [super dealloc];
 }
 
-#pragma mark - Sychnronization
+#pragma mark - Synchronization
 
--(NSDictionary*)syncDictionary {
-    NSDictionary *directoryMap = [_directory directoryMap];
+-(NSDictionary*)modificationDates {
     NSFileManager *manager = [NSFileManager defaultManager];
-    NSMutableDictionary *directoryInformation = [NSMutableDictionary dictionaryWithCapacity:[directoryMap count]];
-    for (NSString *path in directoryMap) {
-        [directoryInformation setObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                                         [[manager attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil] fileModificationDate], FSMModified,
-                                         [directoryMap objectForKey:path], FSMIsDir,
-                                         nil] forKey:path];
+    NSMutableDictionary *modificationDates = [NSMutableDictionary dictionary];
+    for (NSString *path in [manager enumeratorAtPath:_path]) {
+        [modificationDates setObject:[[manager attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil] fileModificationDate] forKey:path];
     }
+    return modificationDates;
+}
+
+-(NSSet*)requestedPathsForModificationDates:(NSDictionary*)modificationDates sinceTime:(NSDate*)syncTime {
+    NSDictionary *localModificationDates = [self modificationDates];
+    NSMutableSet *requestedPaths = [NSMutableSet set];
+    for (NSString *path in modificationDates) {
+        if (![[localModificationDates objectForKey:path] isGreaterThan:[modificationDates objectForKey:path]]) {
+            [requestedPaths addObject:path];
+        }
+    }
+    NSFileManager *manager = [NSFileManager defaultManager];
+    for (NSString *path in localModificationDates) {
+        if (![modificationDates objectForKey:path] && [[localModificationDates objectForKey:path] isLessThan:syncTime]) {
+            [manager removeItemAtPath:[_path stringByAppendingPathComponent:path] error:nil];
+        }
+    }
+    return requestedPaths;
+}
+
+-(void)completeFileSyncWithDiffData:(NSDictionary*)data {
+    NSString *path = [data objectForKey:FSSyncEventPathKey];
+    NSArray *diff = [data objectForKey:FSSyncEventDataKey];
+    [[_incomingSynchronizers objectForKey:path] updateFileWithDiff:diff];
+    [_incomingSynchronizers removeObjectForKey:path];
+}
+
+-(NSDictionary*)diffForComponentData:(NSDictionary*)data {
+    NSString *path = [data objectForKey:FSSyncEventPathKey];
+    NSSet *components = [data objectForKey:FSSyncEventDataKey];
+    NSArray *diff = [[_outgoingSynchronizers objectForKey:path] diffForComponents:components];
+    [_outgoingSynchronizers removeObjectForKey:path];
     return [NSDictionary dictionaryWithObjectsAndKeys:
-            _deleteHistory, FSMDeleteHistory,
-            directoryInformation, FSMDirectoryInformation,
+            path, FSSyncEventPathKey,
+            diff, FSSyncEventDataKey,
             nil];
 }
 
--(NSSet*)requestedPathsForSyncDictionary:(NSDictionary*)syncDictionary {
-    NSDictionary *deleteHistory = [syncDictionary objectForKey:FSMDeleteHistory];
+-(void)syncEvents:(NSArray*)events componentSyncBlock:(void (^)(NSDictionary *componentData))componentSyncBlock {
     NSFileManager *manager = [NSFileManager defaultManager];
-    for (NSString *path in deleteHistory) {
-        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
-        if ([manager fileExistsAtPath:absolutePath] && [[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isLessThan:[deleteHistory objectForKey:path]]) {
-            [manager removeItemAtPath:absolutePath error:nil];
+    for (NSDictionary *event in events) {
+        NSString *type = [event objectForKey:FSSyncEventTypeKey];
+        NSString *absolutePath = [_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventPathKey]];
+        if (![[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThan:[event objectForKey:FSSyncEventDateKey]]) {
+            if ([type isEqualToString:FSSyncEventRemoved]) {
+                [manager removeItemAtPath:absolutePath error:nil];
+            } else if ([type isEqualToString:FSSyncEventAttributesChanged]) {
+                [manager setAttributes:[event objectForKey:FSSyncEventDataKey] ofItemAtPath:absolutePath error:nil];
+            } else if ([type isEqualToString:FSSyncEventDirectoryCreated]) {
+                [manager createDirectoryAtPath:absolutePath withIntermediateDirectories:YES attributes:[event objectForKey:FSSyncEventDataKey] error:nil];
+            } else if ([type isEqualToString:FSSyncEventModified]) {
+                FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
+                [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
+                componentSyncBlock([NSDictionary dictionaryWithObjectsAndKeys:
+                                    [event objectForKey:FSSyncEventPathKey], FSSyncEventPathKey,
+                                    [synchronizer existingComponentsForSignature:[event objectForKey:FSSyncEventDataKey]], FSSyncEventDataKey,
+                                    nil]);
+            }
         }
     }
-    NSDictionary *directoryInformation = [syncDictionary objectForKey:FSMDirectoryInformation];
-    NSMutableSet *syncPaths = [NSMutableSet set];
-    for (NSString *path in directoryInformation) {
-        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
-        if ([_deleteHistory objectForKey:path] && [[_deleteHistory objectForKey:path] isGreaterThanOrEqualTo:[[directoryInformation objectForKey:path] objectForKey:FSMModified]]) {
-            continue;
-        }
-        if ([manager fileExistsAtPath:absolutePath] && [[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThanOrEqualTo:[[directoryInformation objectForKey:path] objectForKey:FSMModified]]) {
-            continue;
-        }
-        [syncPaths addObject:path];
-    }
-    return syncPaths;
 }
 
--(void)startSyncManager {
+-(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data {
+    [_syncEventQueue addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                                type, FSSyncEventTypeKey,
+                                [path substringFromIndex:[_path length]], FSSyncEventPathKey,
+                                [NSDate date], FSSyncEventDateKey,
+                                data, FSSyncEventDataKey,
+                                nil]];
+}
+
+-(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
     [_observer setFileRemovedBlock:^(NSString *path) {
-        
+        [self queueSyncEvent:FSSyncEventRemoved path:path data:nil];
+    }];
+    [_observer setAttributesChangedBlock:^(NSString *path) {
+        [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil]];
+    }];
+    [_observer setFileModifiedBlock:^(NSString *path) {
+        FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
+        [_outgoingSynchronizers setObject:synchronizer forKey:path];
+        [self queueSyncEvent:FSSyncEventModified path:path data:synchronizer.hashSignature];
+    }];
+    [_observer setDirectoryCreatedBlock:^(NSString *path) {
+        [self queueSyncEvent:FSSyncEventRemoved path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil]];
+    }];
+    [_observer setFileRenamedBlock:^(NSString *sourcePath, NSString *destPath) {
+        [self queueSyncEvent:FSSyncEventRenamed path:sourcePath data:[destPath substringFromIndex:[_path length]]];
+    }];
+    [_observer setEventsReceivedBlock:^{
+        NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+        [_syncEventQueue removeAllObjects];
+        eventsReceivedBlock(events);
     }];
     [_observer start];
 }

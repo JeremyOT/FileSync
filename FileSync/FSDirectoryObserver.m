@@ -94,7 +94,6 @@
                 _attributesChangedBlock([paths objectAtIndex:i]);
             } else if (flags[i] & kFSEventStreamEventFlagItemIsDir) {
                 _directoryCreatedBlock([paths objectAtIndex:i]);
-                _attributesChangedBlock([paths objectAtIndex:i]);
             }
         } else {
             _attributesChangedBlock([paths objectAtIndex:i]);
