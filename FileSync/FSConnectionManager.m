@@ -17,6 +17,7 @@
 @property (nonatomic,retain) NSMutableDictionary *remoteServices;
 @property (nonatomic,retain) NSMutableSet *incomingSyncConnections;
 @property (nonatomic,retain) NSMutableSet *outgoingSyncConnections;
+@property (nonatomic,retain) NSMutableDictionary *syncListenerConnections;
 @property (nonatomic,retain) SyncService *service;
 @property (nonatomic,retain) SyncServiceBrowser *browser;
 @property (nonatomic,retain) NSMutableDictionary *syncManagers;
@@ -42,6 +43,7 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
 @synthesize outgoingSyncConnections = _outgoingSyncConnections;
+@synthesize syncListenerConnections = _syncListenerConnections;
 @synthesize service = _service;
 @synthesize browser = _browser;
 @synthesize syncManagers = _syncManagers;
@@ -55,6 +57,7 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
         _browser = [[SyncServiceBrowser alloc] init];
         _outgoingSyncConnections = [[NSMutableSet alloc] init];
         _incomingSyncConnections = [[NSMutableSet alloc] init];
+        _syncListenerConnections = [[NSMutableDictionary alloc] init];
         _syncManagers = [[NSMutableDictionary alloc] init];
         _syncDates = [[NSMutableDictionary alloc] init];
     }
@@ -66,6 +69,7 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
     [_browser release];
     [_outgoingSyncConnections release];
     [_incomingSyncConnections release];
+    [_syncListenerConnections release];
     [_syncManagers release];
     [super dealloc];
 }
@@ -74,13 +78,19 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
 
 -(void)addMonitoredDirectory:(NSString*)name atPath:(NSString*)path {
     FSSyncManager *manager = [[[FSSyncManager alloc] initWithName:name path:path] autorelease];
-//    [manager startSyncManager];
+    [_syncListenerConnections setObject:[NSMutableSet set] forKey:name];
+    [manager startSyncManagerWithBlock:^(NSArray *syncEvents) {
+        for (SyncConnection *connection in [_syncListenerConnections objectForKey:name]) {
+            [self sendMessage:FSSyncMessageTypeFile data:syncEvents path:name connection:connection];
+        }
+    }];
     [_syncManagers setObject:manager forKey:name];
 }
 
 -(void)removeMonitoredDirectory:(NSString*)name {
     [(FSSyncManager*)[_syncManagers objectForKey:name] stopSyncManager];
     [_syncManagers removeObjectForKey:name];
+    [_syncListenerConnections removeObjectForKey:name];
 }
 
 -(void)sendMessage:(NSString*)type data:(id)data path:(NSString*)path connection:(SyncConnection*)connection {
@@ -94,6 +104,16 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
 
 #pragma mark - Outgoing Sync
 
+-(void)addSyncListenerConnection:(SyncConnection*)connection forPath:(NSString*)path {
+    [[_syncListenerConnections objectForKey:path] addObject:connection];
+}
+
+-(void)removeSyncListenerConnection:(SyncConnection*)connection {
+    for (NSString *path in _syncListenerConnections) {
+        [[_syncListenerConnections objectForKey:path] removeObject:connection];
+    }
+}
+
 -(void)processMessage:(NSDictionary*)message forOutgoingConnection:(SyncConnection*)connection {
     NSString *type = [message objectForKey:FSSyncMessageTypeKey];
     NSString *path = [message objectForKey:FSSyncMessagePathKey];
@@ -105,6 +125,7 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
             }
         }
     } else if ([type isEqualToString:FSSyncMessageTypeRequestSync]) {
+        [self addSyncListenerConnection:connection forPath:path];
         [[_syncManagers objectForKey:path] forceSyncForPaths:data block:^(NSArray *syncEvents) {
             [self sendMessage:FSSyncMessageTypeFile data:syncEvents path:path connection:connection];
         }];
@@ -148,6 +169,7 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
         SyncConnection *connection = [[[SyncConnection alloc] initWithNetService:service] autorelease];
         [connection setConnectionTerminatedBlock:^(SyncConnection *c) {
             [_outgoingSyncConnections removeObject:c];
+            [self removeSyncListenerConnection:c];
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
             [self processMessage:m forOutgoingConnection:c];
