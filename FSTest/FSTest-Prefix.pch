@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'FSTest' target in the 'FSTest' project
+//
+
+#ifdef __OBJC__
+    #import <Cocoa/Cocoa.h>
+#endif

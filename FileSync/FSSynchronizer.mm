@@ -78,6 +78,11 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
 
 #pragma mark - Synchronization
 
+-(void)refresh {
+    self.data = nil;
+    self.signature = nil;
+}
+
 -(NSDictionary*)hashSignature {
     NSMutableDictionary *hashSignature = [NSMutableDictionary dictionaryWithCapacity:[self.signature count]];
     for (NSDictionary *sample in self.signature) {
@@ -118,6 +123,9 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     NSData *data = self.data;
     NSMutableSet *matches = [NSMutableSet setWithCapacity:[remoteHashSignature count]];
     int length = [data length];
+    if (!length) {
+        return [NSSet set];
+    }
     unsigned char *bytes = (unsigned char*)[data bytes];
     NSData *strongHash = nil;
     self.syncDataMatches = [NSMutableDictionary dictionary];

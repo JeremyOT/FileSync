@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		24118EFF154A27570006F77B /* SyncService.m in Sources */ = {isa = PBXBuildFile; fileRef = 24118EFE154A27570006F77B /* SyncService.m */; };
 		24118F07154A3CC10006F77B /* SyncConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = 24118F06154A3CC10006F77B /* SyncConnection.m */; };
+		2411E214155A51CB004186D6 /* FSSynchronizer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 24C8977B1551C00700CD3132 /* FSSynchronizer.mm */; };
 		2420671D15563C0000CB579E /* FSSyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 2420671C15563C0000CB579E /* FSSyncManager.m */; };
 		242067241557B55E00CB579E /* FSConnectionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 242067231557B55E00CB579E /* FSConnectionManager.m */; };
 		245B76D9154E6D2D007CDAE2 /* SyncServiceBrowser.m in Sources */ = {isa = PBXBuildFile; fileRef = 245B76D8154E6D2D007CDAE2 /* SyncServiceBrowser.m */; };
@@ -20,9 +21,23 @@
 		24677EA01548EC94000C26DA /* FSAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E9F1548EC94000C26DA /* FSAppDelegate.m */; };
 		24677EA31548EC94000C26DA /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 24677EA11548EC94000C26DA /* MainMenu.xib */; };
 		24677EAB15493010000C26DA /* FileWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677EAA15492F11000C26DA /* FileWatcher.m */; };
+		24C6FFE51559A762006557B4 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 24C6FFE41559A762006557B4 /* SenTestingKit.framework */; };
+		24C6FFE61559A762006557B4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 24677E8C1548EC93000C26DA /* Cocoa.framework */; };
+		24C6FFEC1559A762006557B4 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 24C6FFEA1559A762006557B4 /* InfoPlist.strings */; };
+		24C6FFEF1559A762006557B4 /* FSTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C6FFEE1559A762006557B4 /* FSTest.m */; };
 		24C8977C1551C00700CD3132 /* FSSynchronizer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 24C8977B1551C00700CD3132 /* FSSynchronizer.mm */; };
 		24F4990C1558CFAF0090AB33 /* NSString+Hash.m in Sources */ = {isa = PBXBuildFile; fileRef = 24F4990B1558CFAF0090AB33 /* NSString+Hash.m */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2411E211155A5129004186D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 24677E7F1548EC93000C26DA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 24677E871548EC93000C26DA;
+			remoteInfo = FileSync;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		24118EFD154A27570006F77B /* SyncService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncService.h; sourceTree = "<group>"; };
@@ -54,6 +69,13 @@
 		24677EA21548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		24677EA915492F11000C26DA /* FileWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileWatcher.h; sourceTree = "<group>"; };
 		24677EAA15492F11000C26DA /* FileWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileWatcher.m; sourceTree = "<group>"; };
+		24C6FFE31559A762006557B4 /* FSTest.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FSTest.octest; sourceTree = BUILT_PRODUCTS_DIR; };
+		24C6FFE41559A762006557B4 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
+		24C6FFE91559A762006557B4 /* FSTest-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "FSTest-Info.plist"; sourceTree = "<group>"; };
+		24C6FFEB1559A762006557B4 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		24C6FFED1559A762006557B4 /* FSTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FSTest.h; sourceTree = "<group>"; };
+		24C6FFEE1559A762006557B4 /* FSTest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FSTest.m; sourceTree = "<group>"; };
+		24C6FFF01559A762006557B4 /* FSTest-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FSTest-Prefix.pch"; sourceTree = "<group>"; };
 		24C8977A1551C00700CD3132 /* FSSynchronizer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSSynchronizer.h; sourceTree = "<group>"; };
 		24C8977B1551C00700CD3132 /* FSSynchronizer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = FSSynchronizer.mm; sourceTree = "<group>"; };
 		24F4990A1558CFAF0090AB33 /* NSString+Hash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSString+Hash.h"; sourceTree = "<group>"; };
@@ -66,6 +88,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				24677E8D1548EC93000C26DA /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		24C6FFDF1559A762006557B4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24C6FFE51559A762006557B4 /* SenTestingKit.framework in Frameworks */,
+				24C6FFE61559A762006557B4 /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,6 +138,7 @@
 			isa = PBXGroup;
 			children = (
 				24677E921548EC93000C26DA /* FileSync */,
+				24C6FFE71559A762006557B4 /* FSTest */,
 				24677E8B1548EC93000C26DA /* Frameworks */,
 				24677E891548EC93000C26DA /* Products */,
 			);
@@ -116,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				24677E881548EC93000C26DA /* FileSync.app */,
+				24C6FFE31559A762006557B4 /* FSTest.octest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -124,6 +157,7 @@
 			isa = PBXGroup;
 			children = (
 				24677E8C1548EC93000C26DA /* Cocoa.framework */,
+				24C6FFE41559A762006557B4 /* SenTestingKit.framework */,
 				24677E8E1548EC93000C26DA /* Other Frameworks */,
 			);
 			name = Frameworks;
@@ -167,6 +201,26 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		24C6FFE71559A762006557B4 /* FSTest */ = {
+			isa = PBXGroup;
+			children = (
+				24C6FFED1559A762006557B4 /* FSTest.h */,
+				24C6FFEE1559A762006557B4 /* FSTest.m */,
+				24C6FFE81559A762006557B4 /* Supporting Files */,
+			);
+			path = FSTest;
+			sourceTree = "<group>";
+		};
+		24C6FFE81559A762006557B4 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				24C6FFE91559A762006557B4 /* FSTest-Info.plist */,
+				24C6FFEA1559A762006557B4 /* InfoPlist.strings */,
+				24C6FFF01559A762006557B4 /* FSTest-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -186,6 +240,25 @@
 			productName = FileSync;
 			productReference = 24677E881548EC93000C26DA /* FileSync.app */;
 			productType = "com.apple.product-type.application";
+		};
+		24C6FFE21559A762006557B4 /* FSTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 24C6FFF31559A762006557B4 /* Build configuration list for PBXNativeTarget "FSTest" */;
+			buildPhases = (
+				24C6FFDE1559A762006557B4 /* Sources */,
+				24C6FFDF1559A762006557B4 /* Frameworks */,
+				24C6FFE01559A762006557B4 /* Resources */,
+				24C6FFE11559A762006557B4 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2411E212155A5129004186D6 /* PBXTargetDependency */,
+			);
+			name = FSTest;
+			productName = FSTest;
+			productReference = 24C6FFE31559A762006557B4 /* FSTest.octest */;
+			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
 
@@ -210,6 +283,7 @@
 			projectRoot = "";
 			targets = (
 				24677E871548EC93000C26DA /* FileSync */,
+				24C6FFE21559A762006557B4 /* FSTest */,
 			);
 		};
 /* End PBXProject section */
@@ -225,7 +299,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		24C6FFE01559A762006557B4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24C6FFEC1559A762006557B4 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		24C6FFE11559A762006557B4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		24677E841548EC93000C26DA /* Sources */ = {
@@ -246,7 +344,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		24C6FFDE1559A762006557B4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				24C6FFEF1559A762006557B4 /* FSTest.m in Sources */,
+				2411E214155A51CB004186D6 /* FSSynchronizer.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2411E212155A5129004186D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 24677E871548EC93000C26DA /* FileSync */;
+			targetProxy = 2411E211155A5129004186D6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		24677E951548EC93000C26DA /* InfoPlist.strings */ = {
@@ -271,6 +386,14 @@
 				24677EA21548EC94000C26DA /* en */,
 			);
 			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
+		24C6FFEA1559A762006557B4 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				24C6FFEB1559A762006557B4 /* en */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -343,6 +466,30 @@
 			};
 			name = Release;
 		};
+		24C6FFF11559A762006557B4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DEVELOPER_LIBRARY_DIR)/Frameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "FSTest/FSTest-Prefix.pch";
+				INFOPLIST_FILE = "FSTest/FSTest-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Debug;
+		};
+		24C6FFF21559A762006557B4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DEVELOPER_LIBRARY_DIR)/Frameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "FSTest/FSTest-Prefix.pch";
+				INFOPLIST_FILE = "FSTest/FSTest-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -360,6 +507,15 @@
 			buildConfigurations = (
 				24677EA71548EC94000C26DA /* Debug */,
 				24677EA81548EC94000C26DA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		24C6FFF31559A762006557B4 /* Build configuration list for PBXNativeTarget "FSTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				24C6FFF11559A762006557B4 /* Debug */,
+				24C6FFF21559A762006557B4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

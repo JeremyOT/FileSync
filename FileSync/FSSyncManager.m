@@ -30,6 +30,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 @property (nonatomic, retain) NSMutableDictionary *incomingSynchronizers;
 @property (nonatomic, retain) NSMutableArray *syncEventQueue;
 @property (nonatomic, retain) NSMutableSet *blockedEvents;
+@property (nonatomic, assign) dispatch_queue_t syncLock;
 
 @end
 
@@ -42,6 +43,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 @synthesize incomingSynchronizers = _incomingSynchronizers;
 @synthesize syncEventQueue = _syncEventQueue;
 @synthesize blockedEvents = _blockedEvents;
+@synthesize syncLock = _syncLock;
 
 #pragma mark - Lifecycle
 
@@ -54,6 +56,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
         _incomingSynchronizers = [[NSMutableDictionary alloc] init];
         _syncEventQueue = [[NSMutableArray alloc] init];
         _blockedEvents = [[NSMutableSet alloc] init];
+        _syncLock = dispatch_queue_create("syncLock", 0);
     }
     return self;
 }
@@ -66,6 +69,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
     [_incomingSynchronizers release];
     [_syncEventQueue release];
     [_blockedEvents release];
+    dispatch_release(_syncLock);
     [super dealloc];
 }
 
@@ -145,16 +149,18 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 
 -(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data {
     NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", type, path];
-    if ([_blockedEvents containsObject:blockedEvent]) {
-        [_blockedEvents removeObject:blockedEvent];
-        return;
-    }
-    [_syncEventQueue addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-                                type, FSSyncEventTypeKey,
-                                [path substringFromIndex:[_path length]], FSSyncEventPathKey,
-                                [NSDate date], FSSyncEventDateKey,
-                                data, FSSyncEventDataKey,
-                                nil]];
+    dispatch_sync(_syncLock, ^{
+        if ([_blockedEvents containsObject:blockedEvent]) {
+            [_blockedEvents removeObject:blockedEvent];
+            return;
+        }
+        [_syncEventQueue addObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                                    type, FSSyncEventTypeKey,
+                                    [path substringFromIndex:[_path length]], FSSyncEventPathKey,
+                                    [NSDate date], FSSyncEventDateKey,
+                                    data, FSSyncEventDataKey,
+                                    nil]];
+    });
 }
 
 -(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
@@ -162,29 +168,57 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
         [self queueSyncEvent:FSSyncEventRemoved path:path data:nil];
     }];
     [_observer setAttributesChangedBlock:^(NSString *path) {
-        [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil]];
+        [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
     }];
     [_observer setFileModifiedBlock:^(NSString *path) {
         FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
-        [_outgoingSynchronizers setObject:synchronizer forKey:path];
+        [_outgoingSynchronizers setObject:synchronizer forKey:[path substringFromIndex:[_path length]]];
         [self queueSyncEvent:FSSyncEventModified path:path data:synchronizer.hashSignature];
     }];
     [_observer setDirectoryCreatedBlock:^(NSString *path) {
-        [self queueSyncEvent:FSSyncEventRemoved path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil]];
+        [self queueSyncEvent:FSSyncEventDirectoryCreated path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
     }];
     [_observer setFileRenamedBlock:^(NSString *sourcePath, NSString *destPath) {
         [self queueSyncEvent:FSSyncEventRenamed path:sourcePath data:[destPath substringFromIndex:[_path length]]];
     }];
     [_observer setEventsReceivedBlock:^{
-        NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
-        [_syncEventQueue removeAllObjects];
-        eventsReceivedBlock(events);
+        dispatch_sync(_syncLock, ^{
+            NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+            [_syncEventQueue removeAllObjects];
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                eventsReceivedBlock(events);
+            });
+        });
     }];
     [_observer start];
 }
 
 -(void)stopSyncManager {
     [_observer stop];
+}
+
+-(void)forceSyncForPaths:(NSArray*)paths block:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
+    dispatch_sync(_syncLock, ^{
+        NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+        [_syncEventQueue removeAllObjects];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            eventsReceivedBlock(events);
+        });
+    });
+    for (NSString *path in paths) {
+        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
+        FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
+        [_outgoingSynchronizers setObject:synchronizer forKey:path];
+        [self queueSyncEvent:FSSyncEventModified path:absolutePath data:synchronizer.hashSignature];
+        [self queueSyncEvent:FSSyncEventAttributesChanged path:absolutePath data:[[NSFileManager defaultManager] attributesOfItemAtPath:absolutePath error:nil]];
+    }
+    dispatch_sync(_syncLock, ^{
+        NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+        [_syncEventQueue removeAllObjects];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            eventsReceivedBlock(events);
+        });
+    });
 }
 
 @end

@@ -25,4 +25,7 @@
 -(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock;
 -(void)stopSyncManager;
 
+
+-(void)forceSyncForPaths:(NSArray*)paths block:(void (^)(NSArray* syncEvents))eventsReceivedBlock;
+
 @end

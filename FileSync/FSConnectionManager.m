@@ -20,6 +20,7 @@
 @property (nonatomic,retain) SyncService *service;
 @property (nonatomic,retain) SyncServiceBrowser *browser;
 @property (nonatomic,retain) NSMutableDictionary *syncManagers;
+@property (nonatomic,retain) NSMutableDictionary *syncDates;
 
 @end
 
@@ -30,8 +31,13 @@ NSString *FSSyncMessageDataKey = @"Data";
 NSString *FSSyncMessagePathKey = @"Path";
 NSString *FSSyncMessageSenderKey = @"Sender";
 
-NSString *FSSyncMessageTypeFileList = @"FileList";
 NSString *FSSyncMessageTypeHello = @"Hello";
+NSString *FSSyncMessageTypeFileList = @"FileList";
+NSString *FSSyncMessageTypeModificationDates = @"ModificationDates";
+NSString *FSSyncMessageTypeRequestSync = @"RequestSync";
+NSString *FSSyncMessageTypeFile = @"File";
+NSString *FSSyncMessageTypeComponent = @"Component";
+NSString *FSSyncMessageTypeDiff = @"Diff";
 
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
@@ -39,6 +45,7 @@ NSString *FSSyncMessageTypeHello = @"Hello";
 @synthesize service = _service;
 @synthesize browser = _browser;
 @synthesize syncManagers = _syncManagers;
+@synthesize syncDates = _syncDates;
 
 #pragma mark - Lifecycle
 
@@ -46,9 +53,10 @@ NSString *FSSyncMessageTypeHello = @"Hello";
     if ((self = [super init])) {
         _service = [[SyncService alloc] initWithName:[[NSHost currentHost] localizedName]];
         _browser = [[SyncServiceBrowser alloc] init];
-        _outgoingSyncConnections = [NSMutableSet set];
-        _incomingSyncConnections = [NSMutableSet set];
-        _syncManagers = [NSMutableDictionary dictionary];
+        _outgoingSyncConnections = [[NSMutableSet alloc] init];
+        _incomingSyncConnections = [[NSMutableSet alloc] init];
+        _syncManagers = [[NSMutableDictionary alloc] init];
+        _syncDates = [[NSMutableDictionary alloc] init];
     }
     return self;
 }
@@ -87,13 +95,46 @@ NSString *FSSyncMessageTypeHello = @"Hello";
 #pragma mark - Outgoing Sync
 
 -(void)processMessage:(NSDictionary*)message forOutgoingConnection:(SyncConnection*)connection {
-    
+    NSString *type = [message objectForKey:FSSyncMessageTypeKey];
+    NSString *path = [message objectForKey:FSSyncMessagePathKey];
+    id data = [message objectForKey:FSSyncMessageDataKey];
+    if ([type isEqualToString:FSSyncMessageTypeFileList]) {
+        for (NSString *name in data) {
+            if ([_syncManagers objectForKey:name]) {
+                [self sendMessage:FSSyncMessageTypeModificationDates data:[[_syncManagers objectForKey:name] modificationDates] path:name connection:connection];
+            }
+        }
+    } else if ([type isEqualToString:FSSyncMessageTypeRequestSync]) {
+        [[_syncManagers objectForKey:path] forceSyncForPaths:data block:^(NSArray *syncEvents) {
+            [self sendMessage:FSSyncMessageTypeFile data:syncEvents path:path connection:connection];
+        }];
+    } else if ([type isEqualToString:FSSyncMessageTypeFile]) {
+        [self sendMessage:FSSyncMessageTypeDiff data:[[_syncManagers objectForKey:path] diffForComponentData:data] path:path connection:connection];
+    }
 }
 
 #pragma mark - Incoming Sync
 
 -(void)processMessage:(NSDictionary*)message forIncomingConnection:(SyncConnection*)connection {
-    // Process Hello
+    NSString *sender = [message objectForKey:FSSyncMessageSenderKey];
+    NSString *type = [message objectForKey:FSSyncMessageTypeKey];
+    NSString *path = [message objectForKey:FSSyncMessagePathKey];
+    id data = [message objectForKey:FSSyncMessageDataKey];
+    if ([type isEqualToString:FSSyncMessageTypeHello]) {
+        if (![_syncDates objectForKey:sender]) {
+            [_syncDates setObject:[NSMutableDictionary dictionary] forKey:path];
+        }
+        [self sendMessage:FSSyncMessageTypeFileList data:[_syncManagers allKeys] path:nil connection:connection];
+    } else if ([type isEqualToString:FSSyncMessageTypeModificationDates]) {
+        [self sendMessage:FSSyncMessageTypeRequestSync data:[[_syncManagers objectForKey:path] requestedPathsForModificationDates:data sinceTime:[[_syncDates objectForKey:sender] objectForKey:path]] path:path connection:connection];
+    } else if ([type isEqualToString:FSSyncMessageTypeFile]) {
+        [[_syncManagers objectForKey:path] syncEvents:data componentSyncBlock:^(NSDictionary *componentData) {
+            [self sendMessage:FSSyncMessageTypeComponent data:componentData path:path connection:connection];
+        }];
+    } else if ([type isEqualToString:FSSyncMessageTypeDiff]) {
+        [[_syncManagers objectForKey:path] completeFileSyncWithDiffData:data];
+        [[_syncDates objectForKey:sender] setObject:[NSDate date] forKey:path];
+    }
 }
 
 #pragma mark - Service Control
