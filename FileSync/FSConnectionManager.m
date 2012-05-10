@@ -23,6 +23,8 @@
 @property (nonatomic,retain) NSMutableDictionary *syncManagers;
 @property (nonatomic,retain) NSMutableDictionary *syncDates;
 
+-(void)sendMessage:(NSString*)type data:(id)data path:(NSString*)path connection:(SyncConnection*)connection;
+
 @end
 
 @implementation FSConnectionManager
@@ -33,12 +35,13 @@ NSString *FSSyncMessagePathKey = @"Path";
 NSString *FSSyncMessageSenderKey = @"Sender";
 
 NSString *FSSyncMessageTypeHello = @"Hello";
-NSString *FSSyncMessageTypeFileList = @"FileList";
+NSString *FSSyncMessageTypeMonitoredPathList = @"PathList";
 NSString *FSSyncMessageTypeModificationDates = @"ModificationDates";
 NSString *FSSyncMessageTypeRequestSync = @"RequestSync";
 NSString *FSSyncMessageTypeFile = @"File";
 NSString *FSSyncMessageTypeComponent = @"Component";
 NSString *FSSyncMessageTypeDiff = @"Diff";
+NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
 
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
@@ -76,7 +79,14 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
 
 #pragma mark - Sync Managers
 
+-(NSArray*)monitoredDirectories {
+    return [_syncManagers allKeys];
+}
+
 -(void)addMonitoredDirectory:(NSString*)name atPath:(NSString*)path {
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
+    }
     FSSyncManager *manager = [[[FSSyncManager alloc] initWithName:name path:path] autorelease];
     [_syncListenerConnections setObject:[NSMutableSet set] forKey:name];
     [manager startSyncManagerWithBlock:^(NSArray *syncEvents) {
@@ -85,15 +95,40 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
         }
     }];
     [_syncManagers setObject:manager forKey:name];
+    for (SyncConnection *incomingConnection in _incomingSyncConnections) {
+        [self sendMessage:FSSyncMessageTypeMonitoredPathList data:[NSArray arrayWithObject:name] path:nil connection:incomingConnection];
+    }
 }
 
 -(void)removeMonitoredDirectory:(NSString*)name {
     [(FSSyncManager*)[_syncManagers objectForKey:name] stopSyncManager];
     [_syncManagers removeObjectForKey:name];
+    for (SyncConnection *outgoingConnection in _outgoingSyncConnections) {
+        [self sendMessage:FSSyncMessageTypeRemovedPath data:name path:name connection:outgoingConnection];
+    }
     [_syncListenerConnections removeObjectForKey:name];
 }
 
+#pragma mark - Sync Listeners
+
+-(void)addSyncListenerConnection:(SyncConnection*)connection forPath:(NSString*)path {
+    [[_syncListenerConnections objectForKey:path] addObject:connection];
+}
+
+-(void)removeSyncListenerConnection:(SyncConnection*)connection forPath:(NSString*)path {
+    [[_syncListenerConnections objectForKey:path] removeObject:connection];
+}
+
+-(void)removeSyncListenerConnection:(SyncConnection*)connection {
+    for (NSString *path in _syncListenerConnections) {
+        [self removeSyncListenerConnection:connection forPath:path];
+    }
+}
+
+#pragma mark - Messaging
+
 -(void)sendMessage:(NSString*)type data:(id)data path:(NSString*)path connection:(SyncConnection*)connection {
+    DLog(@"Sending %@ Message <%@>: %@", type, path, data);
     [connection sendMessage:[NSDictionary dictionaryWithObjectsAndKeys:
                              _service.netService.name, FSSyncMessageSenderKey,
                              type, FSSyncMessageTypeKey,
@@ -102,50 +137,40 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
                              nil]];
 }
 
-#pragma mark - Outgoing Sync
-
--(void)addSyncListenerConnection:(SyncConnection*)connection forPath:(NSString*)path {
-    [[_syncListenerConnections objectForKey:path] addObject:connection];
-}
-
--(void)removeSyncListenerConnection:(SyncConnection*)connection {
-    for (NSString *path in _syncListenerConnections) {
-        [[_syncListenerConnections objectForKey:path] removeObject:connection];
-    }
-}
-
 -(void)processMessage:(NSDictionary*)message forOutgoingConnection:(SyncConnection*)connection {
     NSString *type = [message objectForKey:FSSyncMessageTypeKey];
     NSString *path = [message objectForKey:FSSyncMessagePathKey];
     id data = [message objectForKey:FSSyncMessageDataKey];
-    if ([type isEqualToString:FSSyncMessageTypeFileList]) {
+    DLog(@"Outgoing Connection %@ Message <%@>: %@", type, path, data);
+    if ([type isEqualToString:FSSyncMessageTypeMonitoredPathList]) {
         for (NSString *name in data) {
             if ([_syncManagers objectForKey:name]) {
                 [self sendMessage:FSSyncMessageTypeModificationDates data:[[_syncManagers objectForKey:name] modificationDates] path:name connection:connection];
             }
         }
     } else if ([type isEqualToString:FSSyncMessageTypeRequestSync]) {
-        [self addSyncListenerConnection:connection forPath:path];
         [[_syncManagers objectForKey:path] forceSyncForPaths:data block:^(NSArray *syncEvents) {
             [self sendMessage:FSSyncMessageTypeFile data:syncEvents path:path connection:connection];
         }];
-    } else if ([type isEqualToString:FSSyncMessageTypeFile]) {
+        [self addSyncListenerConnection:connection forPath:path];
+    } else if ([type isEqualToString:FSSyncMessageTypeComponent]) {
         [self sendMessage:FSSyncMessageTypeDiff data:[[_syncManagers objectForKey:path] diffForComponentData:data] path:path connection:connection];
+    } else if ([type isEqualToString:FSSyncMessageTypeRemovedPath]) {
+        [self removeSyncListenerConnection:connection forPath:path];
     }
 }
-
-#pragma mark - Incoming Sync
 
 -(void)processMessage:(NSDictionary*)message forIncomingConnection:(SyncConnection*)connection {
     NSString *sender = [message objectForKey:FSSyncMessageSenderKey];
     NSString *type = [message objectForKey:FSSyncMessageTypeKey];
     NSString *path = [message objectForKey:FSSyncMessagePathKey];
     id data = [message objectForKey:FSSyncMessageDataKey];
+    DLog(@"Incoming Connection %@ Message <%@>: %@", type, path, data);
     if ([type isEqualToString:FSSyncMessageTypeHello]) {
         if (![_syncDates objectForKey:sender]) {
-            [_syncDates setObject:[NSMutableDictionary dictionary] forKey:path];
+            [_syncDates setObject:[NSMutableDictionary dictionary] forKey:sender];
         }
-        [self sendMessage:FSSyncMessageTypeFileList data:[_syncManagers allKeys] path:nil connection:connection];
+        [self sendMessage:FSSyncMessageTypeMonitoredPathList data:[_syncManagers allKeys] path:nil connection:connection];
     } else if ([type isEqualToString:FSSyncMessageTypeModificationDates]) {
         [self sendMessage:FSSyncMessageTypeRequestSync data:[[_syncManagers objectForKey:path] requestedPathsForModificationDates:data sinceTime:[[_syncDates objectForKey:sender] objectForKey:path]] path:path connection:connection];
     } else if ([type isEqualToString:FSSyncMessageTypeFile]) {
@@ -202,6 +227,10 @@ NSString *FSSyncMessageTypeDiff = @"Diff";
         }];
         [_incomingSyncConnections addObject:connection];
     }];
+}
+
+-(void)stopSyncManager {
+    
 }
 
 @end

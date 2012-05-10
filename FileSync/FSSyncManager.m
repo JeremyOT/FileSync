@@ -112,6 +112,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 -(NSDictionary*)diffForComponentData:(NSDictionary*)data {
     NSString *path = [data objectForKey:FSSyncEventPathKey];
     NSSet *components = [data objectForKey:FSSyncEventDataKey];
+    DLog(@"Path: %@, Comps: %@", path, components);
     NSArray *diff = [[_outgoingSynchronizers objectForKey:path] diffForComponents:components];
     [_outgoingSynchronizers removeObjectForKey:path];
     return [NSDictionary dictionaryWithObjectsAndKeys:
@@ -121,6 +122,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 }
 
 -(void)syncEvents:(NSArray*)events componentSyncBlock:(void (^)(NSDictionary *componentData))componentSyncBlock {
+    DLog(@"Syncing Remote Events");
     NSFileManager *manager = [NSFileManager defaultManager];
     for (NSDictionary *event in events) {
         NSString *type = [event objectForKey:FSSyncEventTypeKey];
@@ -132,10 +134,15 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
             } else if ([type isEqualToString:FSSyncEventAttributesChanged]) {
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager setAttributes:[event objectForKey:FSSyncEventDataKey] ofItemAtPath:absolutePath error:nil];
+            } else if ([type isEqualToString:FSSyncEventRenamed]) {
+                [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
+                [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, [_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventDataKey]]]];
+                [manager moveItemAtPath:absolutePath toPath:[_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventDataKey]] error:nil];
             } else if ([type isEqualToString:FSSyncEventDirectoryCreated]) {
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager createDirectoryAtPath:absolutePath withIntermediateDirectories:YES attributes:[event objectForKey:FSSyncEventDataKey] error:nil];
             } else if ([type isEqualToString:FSSyncEventModified]) {
+                DLog(@"Start Modified Sync: %@ --- $@", [event objectForKey:FSSyncEventPathKey], [event objectForKey:FSSyncEventDataKey]);
                 FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
                 [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
                 componentSyncBlock([NSDictionary dictionaryWithObjectsAndKeys:
@@ -200,6 +207,9 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 -(void)forceSyncForPaths:(NSArray*)paths block:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
     dispatch_sync(_syncLock, ^{
         NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+        if (![events count]) {
+            return;
+        }
         [_syncEventQueue removeAllObjects];
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             eventsReceivedBlock(events);
@@ -214,6 +224,9 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
     }
     dispatch_sync(_syncLock, ^{
         NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+        if (![events count]) {
+            return;
+        }
         [_syncEventQueue removeAllObjects];
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             eventsReceivedBlock(events);

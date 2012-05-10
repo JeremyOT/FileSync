@@ -69,16 +69,31 @@
     for (int i = 0; i < count; i++) {
         if (flags[i] & kFSEventStreamEventFlagItemRenamed) {
             BOOL isDir = NO;
-            if ([[NSFileManager defaultManager] fileExistsAtPath:[paths objectAtIndex:i] isDirectory:&isDir]) {
+            NSString *path = [paths objectAtIndex:i];
+            NSFileManager *manager = [NSFileManager defaultManager];
+            if ([manager fileExistsAtPath:path isDirectory:&isDir]) {
                 if (isDir) {
-                    _directoryCreatedBlock([paths objectAtIndex:i]);
-                    _attributesChangedBlock([paths objectAtIndex:i]);
+                    _directoryCreatedBlock(path);
+                    for (NSString *subPath in [manager enumeratorAtPath:path]) {
+                        NSString *filePath = [path stringByAppendingPathComponent:subPath];
+                        [manager fileExistsAtPath:filePath isDirectory:&isDir];
+                        if (isDir) {
+                            _directoryCreatedBlock(filePath);
+                        } else {
+                            _fileModifiedBlock(filePath);
+                            _attributesChangedBlock(filePath);
+                        }
+                    }
                 } else {
-                    _fileModifiedBlock([paths objectAtIndex:i]);
-                    _attributesChangedBlock([paths objectAtIndex:i]);
+                    _fileModifiedBlock(path);
+                    _attributesChangedBlock(path);
                 }
             } else {
-                _fileRemovedBlock([paths objectAtIndex:i]);
+                if (i+1 < count && [manager fileExistsAtPath:[paths objectAtIndex:i+1]]) {
+                    _fileRenamedBlock(path, [paths objectAtIndex:++i]);
+                } else {
+                    _fileRemovedBlock(path);
+                }
             }
         } else if (flags[i] & kFSEventStreamEventFlagItemRemoved) {
             _fileRemovedBlock([paths objectAtIndex:i]);

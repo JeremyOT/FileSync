@@ -10,4 +10,11 @@
 
 @interface FSConnectionManager : NSObject
 
+@property (nonatomic, readonly) NSArray *monitoredDirectories;
+
+-(void)addMonitoredDirectory:(NSString*)name atPath:(NSString*)path;
+-(void)removeMonitoredDirectory:(NSString*)name;
+-(void)startSyncManagerWithBlock:(void (^)(NSArray *services))servicesUpdatedBlock;
+-(void)stopSyncManager;
+
 @end
