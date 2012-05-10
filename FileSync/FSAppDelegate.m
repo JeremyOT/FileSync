@@ -8,6 +8,7 @@
 
 #import "FSAppDelegate.h"
 #import "FSConnectionManager.h"
+#import "FileWatcher.h"
 
 @interface FSAppDelegate ()
 

@@ -170,7 +170,9 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
             [compositeData appendData:component];
         }
     }
-    [compositeData writeToFile:_path atomically:YES];
-}
+    NSString *atomicPath = [[_path stringByDeletingLastPathComponent] stringByAppendingPathComponent:[NSString stringWithFormat:@".%@%@", [_path lastPathComponent], FSAtomicSuffix]];
+    [compositeData writeToFile:atomicPath atomically:NO];
+    [[NSFileManager defaultManager] moveItemAtPath:atomicPath toPath:_path error:nil];
+}   
 
 @end

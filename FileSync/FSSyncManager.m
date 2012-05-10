@@ -127,7 +127,8 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
     for (NSDictionary *event in events) {
         NSString *type = [event objectForKey:FSSyncEventTypeKey];
         NSString *absolutePath = [_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventPathKey]];
-        if (![[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThan:[event objectForKey:FSSyncEventDateKey]]) {
+        if (![[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThan:[event objectForKey:FSSyncEventDateKey]] ||
+            ([type isEqualToString:FSSyncEventRemoved] && ![[manager contentsOfDirectoryAtPath:absolutePath error:nil] count])) {
             if ([type isEqualToString:FSSyncEventRemoved]) {
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager removeItemAtPath:absolutePath error:nil];
@@ -142,7 +143,6 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager createDirectoryAtPath:absolutePath withIntermediateDirectories:YES attributes:[event objectForKey:FSSyncEventDataKey] error:nil];
             } else if ([type isEqualToString:FSSyncEventModified]) {
-                DLog(@"Start Modified Sync: %@ --- $@", [event objectForKey:FSSyncEventPathKey], [event objectForKey:FSSyncEventDataKey]);
                 FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
                 [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
                 componentSyncBlock([NSDictionary dictionaryWithObjectsAndKeys:
@@ -157,7 +157,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 -(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data {
     NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", type, path];
     dispatch_sync(_syncLock, ^{
-        if ([_blockedEvents containsObject:blockedEvent]) {
+        if ([path hasSuffix:FSAtomicSuffix] || [_blockedEvents containsObject:blockedEvent]) {
             [_blockedEvents removeObject:blockedEvent];
             return;
         }
@@ -215,12 +215,19 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
             eventsReceivedBlock(events);
         });
     });
+    BOOL isDir = NO;
+    NSFileManager *manager = [NSFileManager defaultManager];
     for (NSString *path in paths) {
         NSString *absolutePath = [_path stringByAppendingPathComponent:path];
-        FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
-        [_outgoingSynchronizers setObject:synchronizer forKey:path];
-        [self queueSyncEvent:FSSyncEventModified path:absolutePath data:synchronizer.hashSignature];
-        [self queueSyncEvent:FSSyncEventAttributesChanged path:absolutePath data:[[NSFileManager defaultManager] attributesOfItemAtPath:absolutePath error:nil]];
+        [manager fileExistsAtPath:absolutePath isDirectory:&isDir];
+        if (isDir) {
+            [self queueSyncEvent:FSSyncEventDirectoryCreated path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
+        } else {
+            FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
+            [_outgoingSynchronizers setObject:synchronizer forKey:path];
+            [self queueSyncEvent:FSSyncEventModified path:absolutePath data:synchronizer.hashSignature];
+            [self queueSyncEvent:FSSyncEventAttributesChanged path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
+        }
     }
     dispatch_sync(_syncLock, ^{
         NSArray *events = [NSArray arrayWithArray:_syncEventQueue];

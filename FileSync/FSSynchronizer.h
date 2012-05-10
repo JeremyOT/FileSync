@@ -6,6 +6,8 @@
 //  Copyright (c) 2012 JOT. All rights reserved.
 //
 
+#define FSAtomicSuffix @"____"
+
 @interface FSSynchronizer : NSObject
 
 @property (nonatomic, retain, readonly) NSString *path;
