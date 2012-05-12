@@ -20,6 +20,8 @@ NSString *FSSyncEventRemoved = @"Removed";
 NSString *FSSyncEventRenamed = @"Renamed";
 NSString *FSSyncEventDirectoryCreated = @"DirectoryCreated";
 NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
+NSString *FSSyncEventModifiedSampleSizeKey = @"SampleSize";
+NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 
 @interface FSSyncManager () 
 
@@ -79,6 +81,9 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
     NSFileManager *manager = [NSFileManager defaultManager];
     NSMutableDictionary *modificationDates = [NSMutableDictionary dictionary];
     for (NSString *path in [manager enumeratorAtPath:_path]) {
+        if ([path hasSuffix:FSAtomicSuffix]) {
+            continue;
+        }
         [modificationDates setObject:[[manager attributesOfItemAtPath:[_path stringByAppendingPathComponent:path] error:nil] fileModificationDate] forKey:path];
     }
     return modificationDates;
@@ -143,11 +148,12 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager createDirectoryAtPath:absolutePath withIntermediateDirectories:YES attributes:[event objectForKey:FSSyncEventDataKey] error:nil];
             } else if ([type isEqualToString:FSSyncEventModified]) {
-                FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
+                NSDictionary *changeData = [event objectForKey:FSSyncEventDataKey];
+                FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath sampleSize:[[changeData objectForKey:FSSyncEventModifiedSampleSizeKey] intValue]] autorelease];
                 [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
                 componentSyncBlock([NSDictionary dictionaryWithObjectsAndKeys:
                                     [event objectForKey:FSSyncEventPathKey], FSSyncEventPathKey,
-                                    [synchronizer existingComponentsForSignature:[event objectForKey:FSSyncEventDataKey]], FSSyncEventDataKey,
+                                    [synchronizer existingComponentsForSignature:[changeData objectForKey:FSSyncEventModifiedComponentHashKey]], FSSyncEventDataKey,
                                     nil]);
             }
         }
@@ -157,7 +163,7 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
 -(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data {
     NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", type, path];
     dispatch_sync(_syncLock, ^{
-        if ([path hasSuffix:FSAtomicSuffix] || [_blockedEvents containsObject:blockedEvent]) {
+        if ([_blockedEvents containsObject:blockedEvent]) {
             [_blockedEvents removeObject:blockedEvent];
             return;
         }
@@ -180,7 +186,11 @@ NSString *FSSyncEventAttributesChanged = @"AttributesChanged";
     [_observer setFileModifiedBlock:^(NSString *path) {
         FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
         [_outgoingSynchronizers setObject:synchronizer forKey:[path substringFromIndex:[_path length]]];
-        [self queueSyncEvent:FSSyncEventModified path:path data:synchronizer.hashSignature];
+        NSDictionary *changeData = [NSDictionary dictionaryWithObjectsAndKeys:
+                                    synchronizer.hashSignature, FSSyncEventModifiedComponentHashKey,
+                                    [NSNumber numberWithInt:synchronizer.sampleSize], FSSyncEventModifiedSampleSizeKey,
+                                    nil];
+        [self queueSyncEvent:FSSyncEventModified path:path data:changeData];
     }];
     [_observer setDirectoryCreatedBlock:^(NSString *path) {
         [self queueSyncEvent:FSSyncEventDirectoryCreated path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];

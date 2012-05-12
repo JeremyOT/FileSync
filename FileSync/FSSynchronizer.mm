@@ -8,8 +8,9 @@
 
 #import "FSSynchronizer.h"
 #import <CommonCrypto/CommonDigest.h>
-#import <math.h>
-#import <c++/4.2.1/tr1/unordered_map>
+#include <math.h>
+#include <tr1/unordered_map>
+
 
 #define FSFastHashKey @"FSFastHash"
 #define FSSlowHashKey @"FSSlowHash"
@@ -18,7 +19,7 @@
 
 @property (nonatomic, retain) NSData *data;
 @property (nonatomic, retain, readwrite) NSString *path;
-@property (nonatomic) int sampleSize;
+@property (nonatomic, readwrite) int sampleSize;
 @property (nonatomic, retain) NSArray *signature;
 @property (nonatomic, retain) NSMutableDictionary *syncDataMatches;
 
@@ -37,7 +38,14 @@
 -(id)initWithFile:(NSString *)path {
     if ((self = [super init])) {
         self.path = path;
-        self.sampleSize = 4096;
+    }
+    return self;
+}
+
+
+-(id)initWithFile:(NSString *)path sampleSize:(int)sampleSize {
+    if ((self = [self initWithFile:path])) {
+        self.sampleSize = sampleSize;
     }
     return self;
 }
@@ -95,6 +103,9 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     if (_data)
         return _data;
     self.data = [NSData dataWithContentsOfFile:_path];
+    if (!_sampleSize) {
+        _sampleSize = MAX(MIN([_data length] / 10000, 2 << 15), 2 << 7);
+    }
     return _data;
 }
 
@@ -146,6 +157,7 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
 -(NSArray*)diffForComponents:(NSSet*)components {
     int length = [self.data length];
     int sampleSize = _sampleSize;
+    
     int sampleCount = ceil((double)length/sampleSize);
     NSMutableArray *diff = [NSMutableArray arrayWithCapacity:sampleCount];
     int i = 0;
@@ -172,7 +184,9 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     }
     NSString *atomicPath = [[_path stringByDeletingLastPathComponent] stringByAppendingPathComponent:[NSString stringWithFormat:@".%@%@", [_path lastPathComponent], FSAtomicSuffix]];
     [compositeData writeToFile:atomicPath atomically:NO];
-    [[NSFileManager defaultManager] moveItemAtPath:atomicPath toPath:_path error:nil];
+    NSFileManager *manager = [NSFileManager defaultManager];
+    [manager moveItemAtPath:atomicPath toPath:_path error:nil];
+    [manager removeItemAtPath:atomicPath error:nil];
 }   
 
 @end

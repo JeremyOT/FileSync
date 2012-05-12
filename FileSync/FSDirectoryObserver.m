@@ -8,6 +8,7 @@
 
 #import "FSDirectoryObserver.h"
 #import "FileWatcher.h"
+#import "FSSynchronizer.h"
 
 @interface FSDirectoryObserver ()
 
@@ -67,14 +68,20 @@
 
 -(void)eventsReceived:(NSArray*)paths eventFlags:(const FSEventStreamEventFlags*)flags eventIds:(const FSEventStreamEventId*)eventIds count:(int)count {
     for (int i = 0; i < count; i++) {
+        NSString *path = [paths objectAtIndex:i];
+        if ([path hasSuffix:FSAtomicSuffix]) {
+            continue;
+        }
         if (flags[i] & kFSEventStreamEventFlagItemRenamed) {
             BOOL isDir = NO;
-            NSString *path = [paths objectAtIndex:i];
             NSFileManager *manager = [NSFileManager defaultManager];
             if ([manager fileExistsAtPath:path isDirectory:&isDir]) {
                 if (isDir) {
                     _directoryCreatedBlock(path);
                     for (NSString *subPath in [manager enumeratorAtPath:path]) {
+                        if ([subPath hasSuffix:FSAtomicSuffix]) {
+                            continue;
+                        }
                         NSString *filePath = [path stringByAppendingPathComponent:subPath];
                         [manager fileExistsAtPath:filePath isDirectory:&isDir];
                         if (isDir) {
@@ -96,22 +103,22 @@
                 }
             }
         } else if (flags[i] & kFSEventStreamEventFlagItemRemoved) {
-            _fileRemovedBlock([paths objectAtIndex:i]);
+            _fileRemovedBlock(path);
         } else if (flags[i] & kFSEventStreamEventFlagItemModified) {
             if (flags[i] & kFSEventStreamEventFlagItemIsFile) {
-                _fileModifiedBlock([paths objectAtIndex:i]);
+                _fileModifiedBlock(path);
             } else if (flags[i] & kFSEventStreamEventFlagItemIsDir) {
-                _directoryCreatedBlock([paths objectAtIndex:i]);
+                _directoryCreatedBlock(path);
             }
         } else if (flags[i] & kFSEventStreamEventFlagItemCreated) {
             if (flags[i] & kFSEventStreamEventFlagItemIsFile) {
-                _fileModifiedBlock([paths objectAtIndex:i]);
-                _attributesChangedBlock([paths objectAtIndex:i]);
+                _fileModifiedBlock(path);
+                _attributesChangedBlock(path);
             } else if (flags[i] & kFSEventStreamEventFlagItemIsDir) {
-                _directoryCreatedBlock([paths objectAtIndex:i]);
+                _directoryCreatedBlock(path);
             }
         } else {
-            _attributesChangedBlock([paths objectAtIndex:i]);
+            _attributesChangedBlock(path);
         }
     }
     if (_eventsReceivedBlock) 
