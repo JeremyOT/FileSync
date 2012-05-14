@@ -11,6 +11,7 @@
 @interface FSConnectionManager : NSObject
 
 @property (nonatomic, readonly) NSArray *monitoredDirectories;
+@property (nonatomic, copy) void (^syncStateChangedBlock)(BOOL syncing);
 
 -(void)addMonitoredDirectory:(NSString*)name atPath:(NSString*)path;
 -(void)removeMonitoredDirectory:(NSString*)name;

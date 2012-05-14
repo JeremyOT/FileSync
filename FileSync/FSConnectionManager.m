@@ -17,6 +17,7 @@
 @property (nonatomic,retain) NSMutableDictionary *remoteServices;
 @property (nonatomic,retain) NSMutableSet *incomingSyncConnections;
 @property (nonatomic,retain) NSMutableSet *outgoingSyncConnections;
+@property (nonatomic,retain) NSMutableSet *activeSyncConnections;
 @property (nonatomic,retain) NSMutableDictionary *syncListenerConnections;
 @property (nonatomic,retain) SyncService *service;
 @property (nonatomic,retain) SyncServiceBrowser *browser;
@@ -46,11 +47,13 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
 @synthesize remoteServices = _remoteServices;
 @synthesize incomingSyncConnections = _incomingSyncConnections;
 @synthesize outgoingSyncConnections = _outgoingSyncConnections;
+@synthesize activeSyncConnections = _activeSyncConnections;
 @synthesize syncListenerConnections = _syncListenerConnections;
 @synthesize service = _service;
 @synthesize browser = _browser;
 @synthesize syncManagers = _syncManagers;
 @synthesize syncDates = _syncDates;
+@synthesize syncStateChangedBlock = _syncStateChangedBlock;
 
 #pragma mark - Lifecycle
 
@@ -60,9 +63,11 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
         _browser = [[SyncServiceBrowser alloc] init];
         _outgoingSyncConnections = [[NSMutableSet alloc] init];
         _incomingSyncConnections = [[NSMutableSet alloc] init];
+        _activeSyncConnections = [[NSMutableSet alloc] init];
         _syncListenerConnections = [[NSMutableDictionary alloc] init];
         _syncManagers = [[NSMutableDictionary alloc] init];
         _syncDates = [[NSMutableDictionary alloc] init];
+        _remoteServices = [[NSMutableDictionary alloc] init];
     }
     return self;
 }
@@ -72,8 +77,11 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
     [_browser release];
     [_outgoingSyncConnections release];
     [_incomingSyncConnections release];
+    [_activeSyncConnections release];
     [_syncListenerConnections release];
     [_syncManagers release];
+    [_remoteServices release];
+    [_syncStateChangedBlock release];
     [super dealloc];
 }
 
@@ -193,8 +201,19 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
         [_remoteServices setObject:service forKey:service.name];
         SyncConnection *connection = [[[SyncConnection alloc] initWithNetService:service] autorelease];
         [connection setConnectionTerminatedBlock:^(SyncConnection *c) {
+            [_activeSyncConnections removeObject:c];
             [_outgoingSyncConnections removeObject:c];
             [self removeSyncListenerConnection:c];
+        }];
+        [connection setStateChangedBlock:^(SyncConnection *c) {
+            if (c.reading || c.writing) {
+                [_activeSyncConnections addObject:c];
+            } else {
+                [_activeSyncConnections removeObject:c];
+            }
+            if (_syncStateChangedBlock) {
+                _syncStateChangedBlock(!![_activeSyncConnections count]);
+            }
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
             [self processMessage:m forOutgoingConnection:c];
@@ -212,7 +231,7 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
     [_browser setServerRemovedBlock:^(NSNetService *service) {
         [_remoteServices removeObjectForKey:service.name];
     }];
-     [_browser startWithBlock:^(SyncServiceBrowser *browser) {
+    [_browser startWithBlock:^(SyncServiceBrowser *browser) {
         servicesUpdatedBlock([[_remoteServices allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)]);
     }];
     [_service setErrorBlock:^(SyncService *ss, NSNetService *ns, NSDictionary *info){
@@ -220,7 +239,18 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
     }];
     [_service startWithAcceptBlock:^(SyncConnection *connection) {
         [connection setConnectionTerminatedBlock:^(SyncConnection *c) {
+            [_activeSyncConnections removeObject:c];
             [_incomingSyncConnections removeObject:c];
+        }];
+        [connection setStateChangedBlock:^(SyncConnection *c) {
+            if (c.reading || c.writing) {
+                [_activeSyncConnections addObject:c];
+            } else {
+                [_activeSyncConnections removeObject:c];
+            }
+            if (_syncStateChangedBlock) {
+                _syncStateChangedBlock(!![_activeSyncConnections count]);
+            }
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
             [self processMessage:m forIncomingConnection:c];
@@ -230,7 +260,14 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
 }
 
 -(void)stopSyncManager {
-    
+    [_browser stop];
+    [_service stop];
+    for (SyncConnection *connection in _incomingSyncConnections) {
+        [connection close];
+    }
+    for (SyncConnection *connection in _outgoingSyncConnections) {
+        [connection close];
+    }
 }
 
 @end

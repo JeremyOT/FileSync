@@ -11,7 +11,5 @@
 @interface FSAppDelegate : NSObject <NSApplicationDelegate>
 
 @property (assign) IBOutlet NSWindow *window;
-@property (nonatomic, retain) IBOutlet NSMenu *statusMenu;
-@property (nonatomic, retain) IBOutlet NSStatusItem *statusItem;
 
 @end

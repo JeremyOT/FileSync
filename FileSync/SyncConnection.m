@@ -44,6 +44,9 @@
 @synthesize connectionTerminatedBlock = _connectionTerminatedBlock;
 @synthesize messageReceivedBlock = _messageReceivedBlock;
 @synthesize connectionEstablishedBlock = _connectionEstablishedBlock;
+@synthesize stateChangedBlock = _stateChangedBlock;
+@synthesize writing = _writing;
+@synthesize reading = _reading;
 
 #pragma mark - Lifecycle
 
@@ -78,6 +81,7 @@
     [_connectionTerminatedBlock release];
     [_messageReceivedBlock release];
     [_connectionEstablishedBlock release];
+    [_stateChangedBlock release];
     [super dealloc];
 }
 
@@ -150,6 +154,9 @@
         [_netService stop];
         self.netService = nil;
     }
+    if (_connectionTerminatedBlock) {
+        _connectionTerminatedBlock(self);
+    }
 }
 
 #pragma mark - Communication
@@ -177,9 +184,6 @@ void writeStreamEventHandler(CFWriteStreamRef stream, CFStreamEventType type, vo
         case kCFStreamEventEndEncountered:
         case kCFStreamEventErrorOccurred:
             [connection close];
-            if (connection->_connectionTerminatedBlock) {
-                connection->_connectionTerminatedBlock(connection);
-            }
         default:
             break;
     }
@@ -187,14 +191,27 @@ void writeStreamEventHandler(CFWriteStreamRef stream, CFStreamEventType type, vo
 
 -(void)writeToStream {
     if (!_writeStreamOpen || !_readStreamOpen || ![_writeBuffer length] || !CFWriteStreamCanAcceptBytes(_writeStream)) {
+        if (_writing) {
+            _writing = NO;
+            if (_stateChangedBlock) {
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    _stateChangedBlock(self);
+                });
+            }
+        }
         return;
+    }
+    if (!_writing) {
+        _writing = YES;
+        if (_stateChangedBlock) {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                _stateChangedBlock(self);
+            });
+        }
     }
     CFIndex writeLength = CFWriteStreamWrite(_writeStream, [_writeBuffer bytes], [_writeBuffer length]);
     if (writeLength == -1) {
         [self close];
-        if (_connectionTerminatedBlock) {
-            _connectionTerminatedBlock(self);
-        }
         return;
     }
     [_writeBuffer replaceBytesInRange:(NSRange){0, writeLength} withBytes:NULL length:0];
@@ -215,23 +232,25 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
         case kCFStreamEventEndEncountered:
         case kCFStreamEventErrorOccurred:
             [connection close];
-            if (connection->_connectionTerminatedBlock) {
-                connection->_connectionTerminatedBlock(connection);
-            }
         default:
             break;
     }
 }
 
 -(void)readFromStream {
+    if (!_reading) {
+        _reading = YES;
+        if (_stateChangedBlock) {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                _stateChangedBlock(self);
+            });
+        }
+    }
     UInt8 buffer[4096];
     while (CFReadStreamHasBytesAvailable(_readStream)) {
         CFIndex read = CFReadStreamRead(_readStream, buffer, sizeof(buffer));
         if (read <= 0) {
             [self close];
-            if (_connectionTerminatedBlock) {
-                _connectionTerminatedBlock(self);
-            }
             return;
         }
         [_readBuffer appendBytes:buffer length:read];
@@ -239,10 +258,19 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
     while (YES) {
         NSInteger messageSize = 0;
         if ([_readBuffer length] < sizeof(NSInteger)) {
+            if (_reading) {
+                _reading = NO;
+                if (_stateChangedBlock) {
+                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                        _stateChangedBlock(self);
+                    });
+                }
+            }
             return;
         }
         memcpy(&messageSize, [_readBuffer bytes], sizeof(NSInteger));
         if ([_readBuffer length] < sizeof(NSInteger) + messageSize) {
+            // We read the message size, but don't have the full message - reading isn't over yet
             return;
         }
         [_readBuffer replaceBytesInRange:(NSRange){0, sizeof(NSInteger)} withBytes:NULL length:0];

@@ -7,43 +7,35 @@
 //
 
 #import "FSAppDelegate.h"
-#import "FSConnectionManager.h"
-#import "FileWatcher.h"
+#import "FSStatusManager.h"
 
 @interface FSAppDelegate ()
 
-@property (nonatomic,retain) NSString *renameSourcePath;
+@property (nonatomic,retain) FSStatusManager *statusManager;
 
 @end
 
 @implementation FSAppDelegate
 
 @synthesize window = _window;
-@synthesize statusItem = _statusItem;
-@synthesize statusMenu = _statusMenu;
-@synthesize renameSourcePath = _renameSourcePath;
+@synthesize statusManager = _statusManager;
 
 - (void)dealloc
 {
-    [_statusMenu release];
-    [_statusItem release];
-    [_renameSourcePath release];
+    [_statusManager release];
     [super dealloc];
 }
 
--(void)awakeFromNib {
+-(void)applicationDidFinishLaunching:(NSNotification *)notification {
     NSString *syncSource = @"/Users/jeremyot/Desktop/SyncTest";
-    FSConnectionManager *manager = [[FSConnectionManager alloc] init];
-    [manager addMonitoredDirectory:@"TestDir" atPath:syncSource];
-    [manager startSyncManagerWithBlock:^(NSArray *services) {
-        [self.statusItem.menu removeAllItems];
-        [self.statusItem.menu addItemWithTitle:[[NSHost currentHost] localizedName] action:NULL keyEquivalent:@""];
-        [self.statusItem.menu addItem:[NSMenuItem separatorItem]];
-        for (NSString *service in [services sortedArrayUsingSelector:@selector(localizedDescription)]) {
-            [self.statusItem.menu addItemWithTitle:service action:NULL keyEquivalent:@""];
-        }
-        DLog(@"Updated Services: %@", services);
-    }];
+    _statusManager = [[FSStatusManager alloc] init];
+    [_statusManager addSyncPath:syncSource withName:@"TestDir"];
+    [_statusManager startSyncing];
+}
+
+-(void)applicationWillTerminate:(NSNotification *)notification {
+    [_statusManager stopSyncing];
+    self.statusManager = nil;
 }
 
 @end
