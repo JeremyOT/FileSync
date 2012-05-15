@@ -88,12 +88,10 @@
                             _directoryCreatedBlock(filePath);
                         } else {
                             _fileModifiedBlock(filePath);
-                            _attributesChangedBlock(filePath);
                         }
                     }
                 } else {
                     _fileModifiedBlock(path);
-                    _attributesChangedBlock(path);
                 }
             } else {
                 if (i+1 < count && [manager fileExistsAtPath:[paths objectAtIndex:i+1]]) {
@@ -113,7 +111,6 @@
         } else if (flags[i] & kFSEventStreamEventFlagItemCreated) {
             if (flags[i] & kFSEventStreamEventFlagItemIsFile) {
                 _fileModifiedBlock(path);
-                _attributesChangedBlock(path);
             } else if (flags[i] & kFSEventStreamEventFlagItemIsDir) {
                 _directoryCreatedBlock(path);
             }

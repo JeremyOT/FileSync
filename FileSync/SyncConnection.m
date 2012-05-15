@@ -44,9 +44,6 @@
 @synthesize connectionTerminatedBlock = _connectionTerminatedBlock;
 @synthesize messageReceivedBlock = _messageReceivedBlock;
 @synthesize connectionEstablishedBlock = _connectionEstablishedBlock;
-@synthesize stateChangedBlock = _stateChangedBlock;
-@synthesize writing = _writing;
-@synthesize reading = _reading;
 
 #pragma mark - Lifecycle
 
@@ -81,7 +78,6 @@
     [_connectionTerminatedBlock release];
     [_messageReceivedBlock release];
     [_connectionEstablishedBlock release];
-    [_stateChangedBlock release];
     [super dealloc];
 }
 
@@ -191,23 +187,7 @@ void writeStreamEventHandler(CFWriteStreamRef stream, CFStreamEventType type, vo
 
 -(void)writeToStream {
     if (!_writeStreamOpen || !_readStreamOpen || ![_writeBuffer length] || !CFWriteStreamCanAcceptBytes(_writeStream)) {
-        if (_writing) {
-            _writing = NO;
-            if (_stateChangedBlock) {
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    _stateChangedBlock(self);
-                });
-            }
-        }
         return;
-    }
-    if (!_writing) {
-        _writing = YES;
-        if (_stateChangedBlock) {
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                _stateChangedBlock(self);
-            });
-        }
     }
     CFIndex writeLength = CFWriteStreamWrite(_writeStream, [_writeBuffer bytes], [_writeBuffer length]);
     if (writeLength == -1) {
@@ -238,14 +218,6 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
 }
 
 -(void)readFromStream {
-    if (!_reading) {
-        _reading = YES;
-        if (_stateChangedBlock) {
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                _stateChangedBlock(self);
-            });
-        }
-    }
     UInt8 buffer[4096];
     while (CFReadStreamHasBytesAvailable(_readStream)) {
         CFIndex read = CFReadStreamRead(_readStream, buffer, sizeof(buffer));
@@ -258,14 +230,6 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
     while (YES) {
         NSInteger messageSize = 0;
         if ([_readBuffer length] < sizeof(NSInteger)) {
-            if (_reading) {
-                _reading = NO;
-                if (_stateChangedBlock) {
-                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                        _stateChangedBlock(self);
-                    });
-                }
-            }
             return;
         }
         memcpy(&messageSize, [_readBuffer bytes], sizeof(NSInteger));

@@ -15,6 +15,12 @@
 #define FSFastHashKey @"FSFastHash"
 #define FSSlowHashKey @"FSSlowHash"
 
+@interface FileManagerSyncDelegate : NSObject <NSFileManagerDelegate>
+
++(id)sharedDelegate;
+
+@end
+
 @interface FSSynchronizer ()
 
 @property (nonatomic, retain) NSData *data;
@@ -185,8 +191,24 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     NSString *atomicPath = [[_path stringByDeletingLastPathComponent] stringByAppendingPathComponent:[NSString stringWithFormat:@".%@%@", [_path lastPathComponent], FSAtomicSuffix]];
     [compositeData writeToFile:atomicPath atomically:NO];
     NSFileManager *manager = [NSFileManager defaultManager];
+    manager.delegate = [FileManagerSyncDelegate sharedDelegate];
     [manager moveItemAtPath:atomicPath toPath:_path error:nil];
-    [manager removeItemAtPath:atomicPath error:nil];
 }   
 
+@end
+
+@implementation FileManagerSyncDelegate
+
++(id)sharedDelegate {
+    static FileManagerSyncDelegate *sharedDelegate = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedDelegate = [[FileManagerSyncDelegate alloc] init];
+    });
+    return sharedDelegate;
+}
+
+-(BOOL)fileManager:(NSFileManager *)fileManager shouldProceedAfterError:(NSError *)error movingItemAtURL:(NSURL *)srcURL toURL:(NSURL *)dstURL {
+    return YES;
+}
 @end

@@ -14,12 +14,9 @@
 @property (nonatomic, readonly) uint16_t port;
 @property (nonatomic, readonly) BOOL readStreamOpen;
 @property (nonatomic, readonly) BOOL writeStreamOpen;
-@property (nonatomic, readonly) BOOL writing;
-@property (nonatomic, readonly) BOOL reading;
 @property (nonatomic, copy) void (^connectionTerminatedBlock)(SyncConnection*);
 @property (nonatomic, copy) void (^messageReceivedBlock)(SyncConnection*, NSDictionary*);
 @property (nonatomic, copy) void (^connectionEstablishedBlock)(SyncConnection*);
-@property (nonatomic, copy) void (^stateChangedBlock)(SyncConnection*);
 
 -(id)initWithHost:(NSString*)host port:(int)port;
 -(id)initWithNativeSocketHandle:(CFSocketNativeHandle)nativeSocketHandle;
