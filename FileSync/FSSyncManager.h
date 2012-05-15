@@ -12,6 +12,8 @@
 
 @property (nonatomic, retain, readonly) NSString *name;
 @property (nonatomic, retain, readonly) NSString *path;
+@property (nonatomic, readonly) NSInteger activeSynchronizerCount;
+@property (nonatomic, copy) void (^syncStatusChangedBlock)();
 
 -(id)initWithName:(NSString*)name path:(NSString*)path;
 

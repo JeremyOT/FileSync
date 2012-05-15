@@ -59,10 +59,14 @@ typedef enum {
         _statusItem.menu.delegate = self;
         _connectionManager = [[FSConnectionManager alloc] init];
         [_connectionManager setSyncStateChangedBlock:^(BOOL syncing) {
-            dispatch_sync(dispatch_get_main_queue(), ^{
+//            NSLog(syncing ? @"Syncing" : @"Sync Stopped");
+            dispatch_async(dispatch_get_main_queue(), ^{
                 _statusItem.title = syncing ? @"Syncing" : @"FileSync";
             });
         }];
+        for (NSString *name in self.syncPaths) {
+            [_connectionManager addMonitoredDirectory:name atPath:[_syncPaths objectForKey:name]];
+        }
         _serverMenuItems = [[NSMutableDictionary alloc] init];
         _pathMenuItems = [[NSMutableDictionary alloc] init];
         [self createMenu];
@@ -172,12 +176,14 @@ typedef enum {
 #pragma mark - Persistence
 
 -(void)addSyncPath:(NSString*)path withName:(NSString*)name {
+    [_connectionManager addMonitoredDirectory:name atPath:path];
     [self.syncPaths setObject:path forKey:name];
     [_syncPaths writeToURL:_syncDirectoryStorageURL atomically:YES];
     [self updateMenu];
 }
 
 -(void)removeSyncPathWithName:(NSString*)name {
+    [_connectionManager removeMonitoredDirectory:name];
     [self.statusItem.menu removeItem:[_pathMenuItems objectForKey:name]];
     [_pathMenuItems removeObjectForKey:name];
     [self.syncPaths removeObjectForKey:name];

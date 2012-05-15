@@ -33,6 +33,7 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 @property (nonatomic, retain) NSMutableArray *syncEventQueue;
 @property (nonatomic, retain) NSMutableSet *blockedEvents;
 @property (nonatomic, assign) dispatch_queue_t syncLock;
+@property (nonatomic, assign) dispatch_queue_t syncQueue;
 
 @end
 
@@ -46,6 +47,8 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 @synthesize syncEventQueue = _syncEventQueue;
 @synthesize blockedEvents = _blockedEvents;
 @synthesize syncLock = _syncLock;
+@synthesize syncQueue = _syncQueue;
+@synthesize syncStatusChangedBlock = _syncStatusChangedBlock;
 
 #pragma mark - Lifecycle
 
@@ -59,6 +62,7 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
         _syncEventQueue = [[NSMutableArray alloc] init];
         _blockedEvents = [[NSMutableSet alloc] init];
         _syncLock = dispatch_queue_create("syncLock", 0);
+        _syncQueue = dispatch_queue_create("syncQueue", 0);
     }
     return self;
 }
@@ -71,11 +75,17 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
     [_incomingSynchronizers release];
     [_syncEventQueue release];
     [_blockedEvents release];
+    [_syncStatusChangedBlock release];
     dispatch_release(_syncLock);
+    dispatch_release(_syncQueue);
     [super dealloc];
 }
 
 #pragma mark - Synchronization
+
+-(NSInteger)activeSynchronizerCount {
+    return [_incomingSynchronizers count] + [_outgoingSynchronizers count];
+}
 
 -(NSDictionary*)modificationDates {
     NSFileManager *manager = [NSFileManager defaultManager];
@@ -112,6 +122,9 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
     [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", FSSyncEventModified, [_path stringByAppendingPathComponent:path]]];
     [[_incomingSynchronizers objectForKey:path] updateFileWithDiff:diff];
     [_incomingSynchronizers removeObjectForKey:path];
+    if (_syncStatusChangedBlock) {
+        _syncStatusChangedBlock();
+    }
 }
 
 -(NSDictionary*)diffForComponentData:(NSDictionary*)data {
@@ -120,6 +133,9 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
     DLog(@"Path: %@, Comps: %@", path, components);
     NSArray *diff = [[_outgoingSynchronizers objectForKey:path] diffForComponents:components];
     [_outgoingSynchronizers removeObjectForKey:path];
+    if (_syncStatusChangedBlock) {
+        _syncStatusChangedBlock();
+    }
     return [NSDictionary dictionaryWithObjectsAndKeys:
             path, FSSyncEventPathKey,
             diff, FSSyncEventDataKey,
@@ -127,11 +143,12 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 }
 
 -(void)syncEvents:(NSArray*)events componentSyncBlock:(void (^)(NSDictionary *componentData))componentSyncBlock {
-    DLog(@"Syncing Remote Events");
+    DLog(@"Syncing %d Remote Events", [events count]);
     NSFileManager *manager = [NSFileManager defaultManager];
     for (NSDictionary *event in events) {
         NSString *type = [event objectForKey:FSSyncEventTypeKey];
         NSString *absolutePath = [_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventPathKey]];
+        DLog(@"Event Type: %@ - %@", type, absolutePath);
         if (![[[manager attributesOfItemAtPath:absolutePath error:nil] fileModificationDate] isGreaterThan:[event objectForKey:FSSyncEventDateKey]] ||
             ([type isEqualToString:FSSyncEventRemoved] && ![[manager contentsOfDirectoryAtPath:absolutePath error:nil] count])) {
             if ([type isEqualToString:FSSyncEventRemoved]) {
@@ -151,11 +168,16 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
                 NSDictionary *changeData = [event objectForKey:FSSyncEventDataKey];
                 FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath sampleSize:[[changeData objectForKey:FSSyncEventModifiedSampleSizeKey] intValue]] autorelease];
                 [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
+                if (_syncStatusChangedBlock) {
+                    _syncStatusChangedBlock();
+                }
                 componentSyncBlock([NSDictionary dictionaryWithObjectsAndKeys:
                                     [event objectForKey:FSSyncEventPathKey], FSSyncEventPathKey,
                                     [synchronizer existingComponentsForSignature:[changeData objectForKey:FSSyncEventModifiedComponentHashKey]], FSSyncEventDataKey,
                                     nil]);
             }
+        } else {
+            DLog(@"Skipped");
         }
     }
 }
@@ -167,9 +189,10 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
             [_blockedEvents removeObject:blockedEvent];
             return;
         }
+        DLog(@"%@", blockedEvent);
         [_syncEventQueue addObject:[NSDictionary dictionaryWithObjectsAndKeys:
                                     type, FSSyncEventTypeKey,
-                                    [path substringFromIndex:[_path length]], FSSyncEventPathKey,
+                                    [path substringFromIndex:[_path length] + 1], FSSyncEventPathKey,
                                     [NSDate date], FSSyncEventDateKey,
                                     data, FSSyncEventDataKey,
                                     nil]];
@@ -178,33 +201,48 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 
 -(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
     [_observer setFileRemovedBlock:^(NSString *path) {
-        [self queueSyncEvent:FSSyncEventRemoved path:path data:nil];
+        dispatch_async(_syncQueue, ^{
+            [self queueSyncEvent:FSSyncEventRemoved path:path data:nil];
+        });
     }];
     [_observer setAttributesChangedBlock:^(NSString *path) {
-        [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
+        dispatch_async(_syncQueue, ^{
+            [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
+        });
     }];
     [_observer setFileModifiedBlock:^(NSString *path) {
-        FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
-        [_outgoingSynchronizers setObject:synchronizer forKey:[path substringFromIndex:[_path length]]];
-        NSDictionary *changeData = [NSDictionary dictionaryWithObjectsAndKeys:
-                                    synchronizer.hashSignature, FSSyncEventModifiedComponentHashKey,
-                                    [NSNumber numberWithInt:synchronizer.sampleSize], FSSyncEventModifiedSampleSizeKey,
-                                    nil];
-        [self queueSyncEvent:FSSyncEventModified path:path data:changeData];
+        dispatch_async(_syncQueue, ^{
+            FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
+            [_outgoingSynchronizers setObject:synchronizer forKey:[path substringFromIndex:[_path length] + 1]];
+            if (_syncStatusChangedBlock) {
+                _syncStatusChangedBlock();
+            }
+            NSDictionary *changeData = [NSDictionary dictionaryWithObjectsAndKeys:
+                                        synchronizer.hashSignature, FSSyncEventModifiedComponentHashKey,
+                                        [NSNumber numberWithInt:synchronizer.sampleSize], FSSyncEventModifiedSampleSizeKey,
+                                        nil];
+            [self queueSyncEvent:FSSyncEventModified path:path data:changeData];
+        });
     }];
     [_observer setDirectoryCreatedBlock:^(NSString *path) {
-        [self queueSyncEvent:FSSyncEventDirectoryCreated path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
+        dispatch_async(_syncQueue, ^{
+            [self queueSyncEvent:FSSyncEventDirectoryCreated path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
+        });
     }];
     [_observer setFileRenamedBlock:^(NSString *sourcePath, NSString *destPath) {
-        [self queueSyncEvent:FSSyncEventRenamed path:sourcePath data:[destPath substringFromIndex:[_path length]]];
+        dispatch_async(_syncQueue, ^{
+            [self queueSyncEvent:FSSyncEventRenamed path:sourcePath data:[destPath substringFromIndex:[_path length] + 1]];
+        });
     }];
     [_observer setEventsReceivedBlock:^{
         dispatch_sync(_syncLock, ^{
             NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
-            [_syncEventQueue removeAllObjects];
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                eventsReceivedBlock(events);
-            });
+            if ([events count]) {
+                [_syncEventQueue removeAllObjects];
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    eventsReceivedBlock(events);
+                });
+            }
         });
     }];
     [_observer start];
@@ -217,36 +255,39 @@ NSString *FSSyncEventModifiedComponentHashKey = @"Hashes";
 -(void)forceSyncForPaths:(NSArray*)paths block:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
     dispatch_sync(_syncLock, ^{
         NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
-        if (![events count]) {
-            return;
+        if ([events count]) {
+            [_syncEventQueue removeAllObjects];
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                eventsReceivedBlock(events);
+            });
         }
-        [_syncEventQueue removeAllObjects];
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            eventsReceivedBlock(events);
-        });
     });
-    BOOL isDir = NO;
-    NSFileManager *manager = [NSFileManager defaultManager];
-    for (NSString *path in paths) {
-        NSString *absolutePath = [_path stringByAppendingPathComponent:path];
-        [manager fileExistsAtPath:absolutePath isDirectory:&isDir];
-        if (isDir) {
-            [self queueSyncEvent:FSSyncEventDirectoryCreated path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
-        } else {
-            FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
-            [_outgoingSynchronizers setObject:synchronizer forKey:path];
-            [self queueSyncEvent:FSSyncEventModified path:absolutePath data:synchronizer.hashSignature];
-            [self queueSyncEvent:FSSyncEventAttributesChanged path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+        BOOL isDir = NO;
+        NSFileManager *manager = [NSFileManager defaultManager];
+        for (NSString *path in paths) {
+            NSString *absolutePath = [_path stringByAppendingPathComponent:path];
+            [manager fileExistsAtPath:absolutePath isDirectory:&isDir];
+            if (isDir) {
+                [self queueSyncEvent:FSSyncEventDirectoryCreated path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
+            } else {
+                FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath] autorelease];
+                [_outgoingSynchronizers setObject:synchronizer forKey:path];
+                if (_syncStatusChangedBlock) {
+                    _syncStatusChangedBlock();
+                }
+                [self queueSyncEvent:FSSyncEventModified path:absolutePath data:synchronizer.hashSignature];
+                [self queueSyncEvent:FSSyncEventAttributesChanged path:absolutePath data:[manager attributesOfItemAtPath:absolutePath error:nil]];
+            }
         }
-    }
-    dispatch_sync(_syncLock, ^{
-        NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
-        if (![events count]) {
-            return;
-        }
-        [_syncEventQueue removeAllObjects];
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            eventsReceivedBlock(events);
+        dispatch_sync(_syncLock, ^{
+            NSArray *events = [NSArray arrayWithArray:_syncEventQueue];
+            if ([events count]) {
+                [_syncEventQueue removeAllObjects];
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    eventsReceivedBlock(events);
+                });
+            }
         });
     });
 }

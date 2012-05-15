@@ -121,8 +121,9 @@
             _attributesChangedBlock(path);
         }
     }
-    if (_eventsReceivedBlock) 
+    if (_eventsReceivedBlock) {
         _eventsReceivedBlock();
+    }
 }
 
 @end
