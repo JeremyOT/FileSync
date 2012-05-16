@@ -27,6 +27,8 @@ typedef enum {
 @property (nonatomic, retain) NSMenuItem *toggleMenuItem;
 @property (nonatomic, retain) NSMutableDictionary *serverMenuItems;
 @property (nonatomic, retain) NSMutableDictionary *pathMenuItems;
+@property (nonatomic, readwrite) FSSyncState currentState;
+@property (nonatomic, retain) NSDate *lastSyncDate;
 
 -(void)createMenu;
 -(void)updateMenu;
@@ -39,12 +41,13 @@ typedef enum {
 @synthesize syncDirectoryStorageURL = _syncDirectoryStorageURL;
 @synthesize serverNames = _serverNames;
 @synthesize connectionManager = _connectionManager;
-@synthesize enabled = _enabled;
 @synthesize syncPaths = _syncPaths;
 @synthesize statusItem = _statusItem;
 @synthesize toggleMenuItem = _toggleMenuItem;
 @synthesize serverMenuItems = _serverMenuItems;
 @synthesize pathMenuItems = _pathMenuItems;
+@synthesize currentState = _currentState;
+@synthesize lastSyncDate = _lastSyncDate;
 
 #pragma mark - Lifecycle
 
@@ -59,10 +62,17 @@ typedef enum {
         _statusItem.menu.delegate = self;
         _connectionManager = [[FSConnectionManager alloc] init];
         [_connectionManager setSyncStateChangedBlock:^(BOOL syncing) {
-//            NSLog(syncing ? @"Syncing" : @"Sync Stopped");
-            dispatch_async(dispatch_get_main_queue(), ^{
-                _statusItem.title = syncing ? @"Syncing" : @"FileSync";
-            });
+            NSDate *syncDate = [NSDate date];
+            self.lastSyncDate = syncDate;
+            self.currentState = FSSyncStateSyncing;
+            if (!syncing) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1.0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^(void){
+                    if (_lastSyncDate == syncDate) {
+                        self.lastSyncDate = nil;
+                        self.currentState = FSSyncStateIdle;
+                    }
+                });
+            }
         }];
         for (NSString *name in self.syncPaths) {
             [_connectionManager addMonitoredDirectory:name atPath:[_syncPaths objectForKey:name]];
@@ -85,24 +95,26 @@ typedef enum {
     [_statusItem release];
     [_serverMenuItems release];
     [_pathMenuItems release];
+    [_lastSyncDate release];
     [super dealloc];
 }
 
 #pragma mark - Syncing
 
 -(void)startSyncing {
+    self.currentState = FSSyncStateIdle;
     [_connectionManager startSyncManagerWithBlock:^(NSArray *services) {
         self.serverNames = [services sortedArrayUsingSelector:@selector(localizedDescription)];
         [self updateMenu];
     }];
-    _enabled = YES;
     self.toggleMenuItem.title = @"Pause";
     self.toggleMenuItem.action = @selector(stopSyncing);
 }
 
 -(void)stopSyncing {
     [_connectionManager stopSyncManager];
-    _enabled = NO;
+    self.lastSyncDate = nil;
+    self.currentState = FSSyncStatePaused;
     self.toggleMenuItem.title = @"Resume";
     self.toggleMenuItem.action = @selector(startSyncing);
 }
@@ -115,14 +127,32 @@ typedef enum {
 
 #pragma mark - Status Item
 
+-(void)setCurrentState:(FSSyncState)currentState {
+    if (_currentState == currentState) {
+        return;
+    }
+    _currentState = currentState;
+    switch (_currentState) {
+        case FSSyncStateIdle:
+            self.statusItem.title = @"File Sync";
+            break;
+        case FSSyncStateSyncing:
+            self.statusItem.title = @"Syncing";
+            break;
+        case FSSyncStatePaused:
+            self.statusItem.title = @"Paused";
+            break;
+    }
+}
+
 -(void)createMenu {
     NSMenu *menu = self.statusItem.menu;
     [menu removeAllItems];
     [menu addItemWithTitle:[[NSHost currentHost] localizedName] action:NULL keyEquivalent:@""];
-    if (_enabled) {
-        self.toggleMenuItem = [menu addItemWithTitle:@"Pause" action: @selector(stopSyncing) keyEquivalent:@""];
-    } else {
+    if (_currentState == FSSyncStatePaused) {
         self.toggleMenuItem = [menu addItemWithTitle:@"Resume" action: @selector(startSyncing) keyEquivalent:@""];
+    } else {
+        self.toggleMenuItem = [menu addItemWithTitle:@"Pause" action: @selector(stopSyncing) keyEquivalent:@""];
     }
     _toggleMenuItem.target = self;
     NSMenuItem *serverSeparator = [NSMenuItem separatorItem];

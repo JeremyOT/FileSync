@@ -222,6 +222,7 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
             DLog(@"Connection Terminated");
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
+            [self activityNotification];
             [self processMessage:m forOutgoingConnection:c];
         }];
         if (![connection connect]) {
@@ -249,6 +250,7 @@ NSString *FSSyncMessageTypeRemovedPath = @"RemovedPath";
             DLog(@"Connection Terminated");
         }];
         [connection setMessageReceivedBlock:^(SyncConnection *c, NSDictionary *m) {
+            [self activityNotification];
             [self processMessage:m forIncomingConnection:c];
         }];
         [_incomingSyncConnections addObject:connection];

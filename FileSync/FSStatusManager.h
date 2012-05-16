@@ -8,9 +8,15 @@
 
 #import <Cocoa/Cocoa.h>
 
+typedef enum {
+    FSSyncStateIdle,
+    FSSyncStateSyncing,
+    FSSyncStatePaused,
+} FSSyncState;
+
 @interface FSStatusManager : NSObject <NSMenuDelegate>
 
-@property (nonatomic, getter = isEnabled, readonly) BOOL enabled;
+@property (nonatomic, readonly) FSSyncState currentState;
 
 -(void)startSyncing;
 -(void)stopSyncing;
