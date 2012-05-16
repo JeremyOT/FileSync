@@ -179,7 +179,7 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     return diff;
 }
 
--(void)updateFileWithDiff:(NSArray*)diff {
+-(void)updateFileWithDiff:(NSArray*)diff attributes:(NSDictionary*)attributes {
     NSMutableData *compositeData = [NSMutableData dataWithCapacity:[diff count] * _sampleSize];
     for (NSData *component in diff) {
         if ([component length] == CC_MD5_DIGEST_LENGTH && [_syncDataMatches objectForKey:component]) {
@@ -191,6 +191,9 @@ static void fashHashSwap(unsigned int *hash, unsigned char add, unsigned char su
     NSString *atomicPath = [[_path stringByDeletingLastPathComponent] stringByAppendingPathComponent:[NSString stringWithFormat:@".%@%@", [_path lastPathComponent], FSAtomicSuffix]];
     [compositeData writeToFile:atomicPath atomically:NO];
     NSFileManager *manager = [NSFileManager defaultManager];
+    if (attributes) {
+        [manager setAttributes:attributes ofItemAtPath:atomicPath error:nil];
+    }
     manager.delegate = [FileManagerSyncDelegate sharedDelegate];
     [manager moveItemAtPath:atomicPath toPath:_path error:nil];
 }   

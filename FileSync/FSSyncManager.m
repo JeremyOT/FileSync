@@ -84,6 +84,17 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
 
 #pragma mark - Synchronization
 
+-(void)updateFile:(NSString*)absolutePath attributes:(NSDictionary*)attributes {
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSDictionary *origAttrs = [manager attributesOfItemAtPath:absolutePath error:nil];
+    if (![origAttrs isEqualToDictionary:attributes]) {
+        [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", FSSyncEventAttributesChanged, absolutePath]];
+        [[NSFileManager defaultManager] setAttributes:attributes ofItemAtPath:absolutePath error:nil];
+    } else {
+        DLog(@"---EQ-ATTRS---");
+    }
+}
+
 -(NSInteger)activeSynchronizerCount {
     return [_incomingSynchronizers count] + [_outgoingSynchronizers count];
 }
@@ -104,13 +115,13 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
     NSDictionary *localModificationDates = [self modificationDates];
     NSMutableSet *requestedPaths = [NSMutableSet set];
     for (NSString *path in modificationDates) {
-        if (![[localModificationDates objectForKey:path] isGreaterThan:[modificationDates objectForKey:path]]) {
+        if (![localModificationDates objectForKey:path] || [[localModificationDates objectForKey:path] compare:[modificationDates objectForKey:path]] == NSOrderedAscending) {
             [requestedPaths addObject:path];
         }
     }
     NSFileManager *manager = [NSFileManager defaultManager];
     for (NSString *path in localModificationDates) {
-        if (![modificationDates objectForKey:path] && [[localModificationDates objectForKey:path] isLessThan:syncTime]) {
+        if (![modificationDates objectForKey:path] && [(NSDate*)[localModificationDates objectForKey:path] compare:syncTime] == NSOrderedDescending) {
             [manager removeItemAtPath:[_path stringByAppendingPathComponent:path] error:nil];
         }
     }
@@ -122,10 +133,8 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
     NSArray *diff = [data objectForKey:FSSyncEventDataKey];
     NSString *absolutePath = [_path stringByAppendingPathComponent:path];
     [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", FSSyncEventModified, absolutePath]];
-    [[_incomingSynchronizers objectForKey:path] updateFileWithDiff:diff];
+    [[_incomingSynchronizers objectForKey:path] updateFileWithDiff:diff attributes:[_syncAttributes objectForKey:absolutePath]];
     [_incomingSynchronizers removeObjectForKey:path];
-    [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", FSSyncEventAttributesChanged, absolutePath]];
-    [[NSFileManager defaultManager] setAttributes:[_syncAttributes objectForKey:absolutePath] ofItemAtPath:absolutePath error:nil];
     [_syncAttributes removeObjectForKey:absolutePath];
     if (_syncStatusChangedBlock) {
         _syncStatusChangedBlock();
@@ -147,6 +156,8 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
             nil];
 }
 
+#pragma mark - Sync Events
+
 -(void)syncEvents:(NSArray*)events componentSyncBlock:(void (^)(NSDictionary *componentData))componentSyncBlock {
     DLog(@"Syncing %d Remote Events", [events count]);
     NSFileManager *manager = [NSFileManager defaultManager];
@@ -160,8 +171,7 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [manager removeItemAtPath:absolutePath error:nil];
             } else if ([type isEqualToString:FSSyncEventAttributesChanged]) {
-                [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
-                [manager setAttributes:[event objectForKey:FSSyncEventDataKey] ofItemAtPath:absolutePath error:nil];
+                [self updateFile:absolutePath attributes:[event objectForKey:FSSyncEventDataKey]];
             } else if ([type isEqualToString:FSSyncEventRenamed]) {
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, absolutePath]];
                 [_blockedEvents addObject:[NSString stringWithFormat:@"%@:%@", type, [_path stringByAppendingPathComponent:[event objectForKey:FSSyncEventDataKey]]]];
@@ -190,13 +200,7 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
 }
 
 -(void)queueSyncEvent:(NSString*)type path:(NSString*)path data:(id)data {
-    NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", type, path];
     dispatch_sync(_syncLock, ^{
-        if ([_blockedEvents containsObject:blockedEvent]) {
-            [_blockedEvents removeObject:blockedEvent];
-            return;
-        }
-        DLog(@"%@", blockedEvent);
         [_syncEventQueue addObject:[NSDictionary dictionaryWithObjectsAndKeys:
                                     type, FSSyncEventTypeKey,
                                     [path substringFromIndex:[_path length] + 1], FSSyncEventPathKey,
@@ -208,12 +212,27 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
 
 -(void)startSyncManagerWithBlock:(void (^)(NSArray* syncEvents))eventsReceivedBlock {
     [_observer setFileRemovedBlock:^(NSString *path) {
+        NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventRemoved, path];
+        if ([_blockedEvents containsObject:blockedEvent]) {
+            [_blockedEvents removeObject:blockedEvent];
+            return;
+        }
         [self queueSyncEvent:FSSyncEventRemoved path:path data:nil];
     }];
     [_observer setAttributesChangedBlock:^(NSString *path) {
+        NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventAttributesChanged, path];
+        if ([_blockedEvents containsObject:blockedEvent]) {
+            [_blockedEvents removeObject:blockedEvent];
+            return;
+        }
         [self queueSyncEvent:FSSyncEventAttributesChanged path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
     }];
     [_observer setFileModifiedBlock:^(NSString *path) {
+        NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventModified, path];
+        if ([_blockedEvents containsObject:blockedEvent]) {
+            [_blockedEvents removeObject:blockedEvent];
+            return;
+        }
         FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:path] autorelease];
         [_outgoingSynchronizers setObject:synchronizer forKey:[path substringFromIndex:[_path length] + 1]];
         if (_syncStatusChangedBlock) {
@@ -228,9 +247,21 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
         [self queueSyncEvent:FSSyncEventModified path:path data:changeData];
     }];
     [_observer setDirectoryCreatedBlock:^(NSString *path) {
+        NSString *blockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventDirectoryCreated, path];
+        if ([_blockedEvents containsObject:blockedEvent]) {
+            [_blockedEvents removeObject:blockedEvent];
+            return;
+        }
         [self queueSyncEvent:FSSyncEventDirectoryCreated path:path data:[[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil]];
     }];
     [_observer setFileRenamedBlock:^(NSString *sourcePath, NSString *destPath) {
+        NSString *sourceBlockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventRenamed, sourcePath];
+        NSString *destBlockedEvent = [NSString stringWithFormat:@"%@:%@", FSSyncEventRenamed, destPath];
+        if ([_blockedEvents containsObject:sourceBlockedEvent] && [_blockedEvents containsObject:destBlockedEvent]) {
+            [_blockedEvents removeObject:sourceBlockedEvent];
+            [_blockedEvents removeObject:destBlockedEvent];
+            return;
+        }
         [self queueSyncEvent:FSSyncEventRenamed path:sourcePath data:[destPath substringFromIndex:[_path length] + 1]];
     }];
     [_observer setEventsReceivedBlock:^{

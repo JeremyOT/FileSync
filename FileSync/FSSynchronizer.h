@@ -19,6 +19,6 @@
 
 -(NSSet*)existingComponentsForSignature:(NSDictionary*)remoteSignature;
 -(NSArray*)diffForComponents:(NSSet*)components;
--(void)updateFileWithDiff:(NSArray*)diff;
+-(void)updateFileWithDiff:(NSArray*)diff attributes:(NSDictionary*)attributes;
 
 @end
