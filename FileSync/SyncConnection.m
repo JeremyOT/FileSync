@@ -218,7 +218,7 @@ void readStreamEventHandler(CFReadStreamRef stream, CFStreamEventType type, void
 }
 
 -(void)readFromStream {
-    UInt8 buffer[4096];
+    UInt8 buffer[10240];
     while (CFReadStreamHasBytesAvailable(_readStream)) {
         CFIndex read = CFReadStreamRead(_readStream, buffer, sizeof(buffer));
         if (read <= 0) {

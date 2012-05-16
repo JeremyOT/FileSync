@@ -181,7 +181,6 @@ NSString *FSSyncEventModifiedAttributesKey = @"Attributes";
                 [manager createDirectoryAtPath:absolutePath withIntermediateDirectories:YES attributes:[event objectForKey:FSSyncEventDataKey] error:nil];
             } else if ([type isEqualToString:FSSyncEventModified]) {
                 NSDictionary *changeData = [event objectForKey:FSSyncEventDataKey];
-                DLog(@"Incoming Modified: %@", changeData);
                 FSSynchronizer *synchronizer = [[[FSSynchronizer alloc] initWithFile:absolutePath sampleSize:[[changeData objectForKey:FSSyncEventModifiedSampleSizeKey] intValue]] autorelease];
                 [_syncAttributes setObject:[changeData objectForKey:FSSyncEventModifiedAttributesKey] forKey:absolutePath];
                 [_incomingSynchronizers setObject:synchronizer forKey:[event objectForKey:FSSyncEventPathKey]];
