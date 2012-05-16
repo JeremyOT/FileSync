@@ -20,8 +20,10 @@
 		24677E991548EC94000C26DA /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E981548EC94000C26DA /* main.m */; };
 		24677E9D1548EC94000C26DA /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 24677E9B1548EC94000C26DA /* Credits.rtf */; };
 		24677EA01548EC94000C26DA /* FSAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677E9F1548EC94000C26DA /* FSAppDelegate.m */; };
-		24677EA31548EC94000C26DA /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 24677EA11548EC94000C26DA /* MainMenu.xib */; };
+		24677EA31548EC94000C26DA /* Main.xib in Resources */ = {isa = PBXBuildFile; fileRef = 24677EA11548EC94000C26DA /* Main.xib */; };
 		24677EAB15493010000C26DA /* FileWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 24677EAA15492F11000C26DA /* FileWatcher.m */; };
+		2478709F1563952B0029A6DB /* FSPreferencesWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2478709D1563952B0029A6DB /* FSPreferencesWindowController.m */; };
+		247870A01563952B0029A6DB /* FSPreferencesWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 2478709E1563952B0029A6DB /* FSPreferencesWindowController.xib */; };
 		24C6FFE51559A762006557B4 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 24C6FFE41559A762006557B4 /* SenTestingKit.framework */; };
 		24C6FFE61559A762006557B4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 24677E8C1548EC93000C26DA /* Cocoa.framework */; };
 		24C6FFEC1559A762006557B4 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 24C6FFEA1559A762006557B4 /* InfoPlist.strings */; };
@@ -69,9 +71,12 @@
 		24677E9C1548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
 		24677E9E1548EC94000C26DA /* FSAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FSAppDelegate.h; sourceTree = "<group>"; };
 		24677E9F1548EC94000C26DA /* FSAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FSAppDelegate.m; sourceTree = "<group>"; };
-		24677EA21548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		24677EA21548EC94000C26DA /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/Main.xib; sourceTree = "<group>"; };
 		24677EA915492F11000C26DA /* FileWatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FileWatcher.h; sourceTree = "<group>"; };
 		24677EAA15492F11000C26DA /* FileWatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FileWatcher.m; sourceTree = "<group>"; };
+		2478709C1563952B0029A6DB /* FSPreferencesWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSPreferencesWindowController.h; sourceTree = "<group>"; };
+		2478709D1563952B0029A6DB /* FSPreferencesWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FSPreferencesWindowController.m; sourceTree = "<group>"; };
+		2478709E1563952B0029A6DB /* FSPreferencesWindowController.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = FSPreferencesWindowController.xib; sourceTree = "<group>"; };
 		24C6FFE31559A762006557B4 /* FSTest.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FSTest.octest; sourceTree = BUILT_PRODUCTS_DIR; };
 		24C6FFE41559A762006557B4 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
 		24C6FFE91559A762006557B4 /* FSTest-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "FSTest-Info.plist"; sourceTree = "<group>"; };
@@ -184,11 +189,13 @@
 				24295DE2154CFA9F0044534C /* BSONSerialization.m */,
 				24597AD1156036B0003F8B9B /* FSStatusManager.h */,
 				24597AD2156036B0003F8B9B /* FSStatusManager.m */,
+				2478709C1563952B0029A6DB /* FSPreferencesWindowController.h */,
+				2478709D1563952B0029A6DB /* FSPreferencesWindowController.m */,
 				24677E9E1548EC94000C26DA /* FSAppDelegate.h */,
 				24677E9F1548EC94000C26DA /* FSAppDelegate.m */,
 				24677EA915492F11000C26DA /* FileWatcher.h */,
 				24677EAA15492F11000C26DA /* FileWatcher.m */,
-				24677EA11548EC94000C26DA /* MainMenu.xib */,
+				247870981563937B0029A6DB /* Resources */,
 				24677E931548EC93000C26DA /* Supporting Files */,
 			);
 			path = FileSync;
@@ -204,6 +211,15 @@
 				24677E9B1548EC94000C26DA /* Credits.rtf */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		247870981563937B0029A6DB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				24677EA11548EC94000C26DA /* Main.xib */,
+				2478709E1563952B0029A6DB /* FSPreferencesWindowController.xib */,
+			);
+			name = Resources;
 			sourceTree = "<group>";
 		};
 		24C6FFE71559A762006557B4 /* FSTest */ = {
@@ -300,7 +316,8 @@
 			files = (
 				24677E971548EC93000C26DA /* InfoPlist.strings in Resources */,
 				24677E9D1548EC94000C26DA /* Credits.rtf in Resources */,
-				24677EA31548EC94000C26DA /* MainMenu.xib in Resources */,
+				24677EA31548EC94000C26DA /* Main.xib in Resources */,
+				247870A01563952B0029A6DB /* FSPreferencesWindowController.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,6 +364,7 @@
 				242067241557B55E00CB579E /* FSConnectionManager.m in Sources */,
 				24F4990C1558CFAF0090AB33 /* NSString+Hash.m in Sources */,
 				24597AD3156036B0003F8B9B /* FSStatusManager.m in Sources */,
+				2478709F1563952B0029A6DB /* FSPreferencesWindowController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,12 +404,12 @@
 			name = Credits.rtf;
 			sourceTree = "<group>";
 		};
-		24677EA11548EC94000C26DA /* MainMenu.xib */ = {
+		24677EA11548EC94000C26DA /* Main.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
 				24677EA21548EC94000C26DA /* en */,
 			);
-			name = MainMenu.xib;
+			name = Main.xib;
 			sourceTree = "<group>";
 		};
 		24C6FFEA1559A762006557B4 /* InfoPlist.strings */ = {
